@@ -55,8 +55,8 @@ Services communicate through documented contracts in [`packages/contracts`](pack
 | Milestone | Scope | Status |
 |---|---|---|
 | 0 | Repo, architecture, brand, design system, DB + auth provisioning, CI | ✅ Shipped |
-| 1 | Auth end-to-end, dashboard shell, dark/light mode | ⏳ Next |
-| 2 | Single-agent research flow, source retrieval, citations | Planned |
+| 1 | Auth end-to-end (Clerk ↔ .NET gateway), dashboard shell, theme toggle | ✅ Shipped |
+| 2 | Single-agent research flow, source retrieval, citations | ⏳ Next |
 | 3 | Multi-agent mesh, contradiction detection, eval harness | Planned |
 | 4 | Workflow engine: queue, retries, rate limits, approval gates | Planned |
 | 5 | Real-time trace UI, report export | Planned |
@@ -75,9 +75,13 @@ cd apps/web
 npm install
 cp ../../.env.example .env.local   # fill in values — see comments in the file
 npm run dev
+
+# Gateway (requires .NET 10 SDK)
+cd services/gateway/src/Consilience.Gateway
+DATABASE_URL="postgresql://…" dotnet run   # http://localhost:5180
 ```
 
-Backend services (`gateway`, `mesh`, `engine`) gain run instructions as they come online in Milestones 1–4. All environment variables are documented in [`.env.example`](.env.example); no secrets are ever committed.
+The dashboard footer shows live gateway session status: with the gateway running, it confirms the JWT verified end-to-end; without it, the app runs web-only. Remaining services (`mesh`, `engine`) gain run instructions as they come online in Milestones 2–4. All environment variables are documented in [`.env.example`](.env.example); no secrets are ever committed.
 
 ## Documentation
 

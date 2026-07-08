@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 import { Logo } from "@/components/logo";
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-10 px-6 text-center">
       <Logo className="h-11 w-11 text-accent" />
@@ -16,6 +18,12 @@ export default function Home() {
       </div>
       <div className="flex items-center gap-6 text-sm font-medium">
         <Link
+          href={userId ? "/dashboard" : "/sign-in"}
+          className="rounded-md bg-accent px-4 py-2 text-on-accent transition-opacity hover:opacity-90"
+        >
+          {userId ? "Open dashboard" : "Sign in"}
+        </Link>
+        <Link
           href="/styleguide"
           className="text-accent underline-offset-4 transition-colors hover:underline"
         >
@@ -29,7 +37,7 @@ export default function Home() {
         </a>
       </div>
       <p className="fixed bottom-6 font-mono text-xs text-ink-muted">
-        milestone 0 · foundation
+        milestone 1 · auth online
       </p>
     </main>
   );

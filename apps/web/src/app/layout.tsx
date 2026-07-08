@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Inter, JetBrains_Mono, Newsreader } from "next/font/google";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const inter = Inter({
@@ -33,11 +35,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${newsreader.variable} ${jetbrainsMono.variable} h-full antialiased`}
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: "#0e7569",
+          borderRadius: "0.625rem",
+          fontFamily: "var(--font-inter), sans-serif",
+        },
+      }}
     >
-      <body className="flex min-h-full flex-col font-sans">{children}</body>
-    </html>
+      <html
+        lang="en"
+        suppressHydrationWarning
+        className={`${inter.variable} ${newsreader.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      >
+        <body className="flex min-h-full flex-col font-sans">
+          <Providers>{children}</Providers>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

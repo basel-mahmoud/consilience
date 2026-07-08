@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Consilience.Gateway/Consilience.Gateway.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Consilience.Gateway.Tests/Consilience.Gateway.Tests.csproj" />
+  </Folder>
+</Solution>

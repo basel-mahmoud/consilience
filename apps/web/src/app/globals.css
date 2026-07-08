@@ -18,22 +18,25 @@
   --confidence-high: #15803d;
   --confidence-mid: #b45309;
   --confidence-low: #b91c1c;
+
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #131416;
-    --surface: #1b1d1f;
-    --ink: #eceae6;
-    --ink-muted: #99958e;
-    --line: #2a2c2f;
-    --accent: #3ac0ae;
-    --on-accent: #0a2925;
+/* Explicit theme choice (next-themes sets data-theme; system resolves to one) */
+[data-theme="dark"] {
+  --bg: #131416;
+  --surface: #1b1d1f;
+  --ink: #eceae6;
+  --ink-muted: #99958e;
+  --line: #2a2c2f;
+  --accent: #3ac0ae;
+  --on-accent: #0a2925;
 
-    --confidence-high: #3ccb7f;
-    --confidence-mid: #e0a93e;
-    --confidence-low: #e5695a;
-  }
+  --confidence-high: #3ccb7f;
+  --confidence-mid: #e0a93e;
+  --confidence-low: #e5695a;
+
+  color-scheme: dark;
 }
 
 @theme inline {

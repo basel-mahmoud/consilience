@@ -23,5 +23,18 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
-  # Gateway (.NET), Mesh (Python), and Engine (Java) jobs are added in the
-  # milestone that introduces each service — every service ships with CI.
+  gateway:
+    name: Gateway — tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet test --nologo
+
+  # Mesh (Python) and Engine (Java) jobs are added in the milestone that
+  # introduces each service — every service ships with CI.
