@@ -18,12 +18,15 @@ export interface RunClaim {
   text: string;
   confidence: Confidence;
   sourcePositions: number[];
+  agent: string | null;
 }
 
 export interface RunSource {
   position: number;
   url: string;
   title: string | null;
+  credibility: Confidence | null;
+  agent: string | null;
 }
 
 export interface RunDetail {

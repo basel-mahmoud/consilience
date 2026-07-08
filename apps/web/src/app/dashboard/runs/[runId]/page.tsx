@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getRun, type RunDetail } from "@/lib/gateway";
-import { ConfidenceBadge, StatusPill } from "@/components/run-status";
+import {
+  AgentTag,
+  ConfidenceBadge,
+  CredibilityDot,
+  StatusPill,
+} from "@/components/run-status";
 import { RunAutoRefresh } from "@/components/run-auto-refresh";
 
 export const metadata: Metadata = {
@@ -25,6 +30,21 @@ export default async function RunPage({
   if (run === null) notFound();
 
   const inProgress = run.status === "queued" || run.status === "running";
+
+  // Per-lens tallies for the mesh strip (agent attribution arrives with M3)
+  const agents = Array.from(
+    run.claims.reduce((map, c) => {
+      if (!c.agent) return map;
+      const entry = map.get(c.agent) ?? { label: c.agent, claims: 0, sources: 0 };
+      entry.claims += 1;
+      return map.set(c.agent, entry);
+    }, new Map<string, { label: string; claims: number; sources: number }>()),
+  ).map(([, v]) => v);
+  for (const s of run.sources) {
+    if (!s.agent) continue;
+    const entry = agents.find((a) => a.label === s.agent);
+    if (entry) entry.sources += 1;
+  }
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-8">
@@ -67,10 +87,27 @@ export default async function RunPage({
 
       {run.status === "completed" && (
         <>
+          {agents.length > 0 && (
+            <section className="flex flex-wrap gap-2">
+              {agents.map((a) => (
+                <span
+                  key={a.label}
+                  className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-xs"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  <span className="font-medium">{a.label}</span>
+                  <span className="font-mono text-[11px] text-ink-muted">
+                    {a.claims} claims · {a.sources} sources
+                  </span>
+                </span>
+              ))}
+            </section>
+          )}
+
           {run.summary && (
             <section className="space-y-2">
               <h2 className="font-mono text-xs uppercase tracking-widest text-ink-muted">
-                Summary
+                Synthesis
               </h2>
               <p className="leading-7">{run.summary}</p>
             </section>
@@ -87,13 +124,14 @@ export default async function RunPage({
                   className="space-y-2 rounded-lg border border-line bg-surface p-4"
                 >
                   <p className="leading-7">{claim.text}</p>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                     <ConfidenceBadge confidence={claim.confidence} />
                     {claim.sourcePositions.length > 0 && (
                       <span className="font-mono text-xs text-ink-muted">
                         {claim.sourcePositions.map((p) => `[${p}]`).join(" ")}
                       </span>
                     )}
+                    {claim.agent && <AgentTag label={claim.agent} />}
                   </div>
                 </li>
               ))}
@@ -107,17 +145,22 @@ export default async function RunPage({
             <ol className="space-y-2">
               {run.sources.map((source) => (
                 <li key={source.position} className="flex gap-3 text-sm">
-                  <span className="font-mono text-xs text-ink-muted">
+                  <span className="pt-0.5 font-mono text-xs text-ink-muted">
                     [{source.position}]
                   </span>
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow"
-                    className="min-w-0 break-words text-accent underline-offset-4 hover:underline"
-                  >
-                    {source.title || source.url}
-                  </a>
+                  <div className="min-w-0 space-y-1">
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="block min-w-0 break-words text-accent underline-offset-4 hover:underline"
+                    >
+                      {source.title || source.url}
+                    </a>
+                    {source.credibility && (
+                      <CredibilityDot credibility={source.credibility} />
+                    )}
+                  </div>
                 </li>
               ))}
             </ol>

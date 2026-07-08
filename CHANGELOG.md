@@ -2,6 +2,29 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [0.4.0] — 2026-07-09 · Milestone 3a: Parallel multi-agent mesh + credibility
+
+**Shipped**
+
+- Multi-agent orchestration (`orchestrator.py`): one research agent per **lens** — primary evidence, expert analysis, skeptical review — run concurrently, each producing its own grounded search, claims, and sources; a synthesis pass writes a cross-agent run summary
+- Partial-failure tolerance: a run completes on surviving agents if some fail; only a total wipeout fails the run (and synthesis failure falls back to an agent summary rather than failing the run)
+- Deterministic **source credibility** scoring (`credibility.py`): every source is ranked high/mid/low by domain class (gov/edu/primary → high, established outlets/orgs → mid, user-generated/unknown → low), correctly resolving the real domain behind search-grounding redirect URLs
+- Per-agent attribution persisted: new `run_agents` table, and `run_agent_id` + `credibility` on sources/claims (Neon MCP migration, verified on a temp branch)
+- Gateway run detail now returns each claim's agent and each source's credibility; the run view shows a per-lens summary strip, agent tags on claims, and credibility on sources
+- Tests: mesh suite grows to 31 (credibility tiers incl. redirect-domain resolution, orchestrator parallelism/partial-failure/synthesis-fallback); gateway 15 still green
+
+**Verified**
+
+- Live multi-agent run ("coffee & cardiovascular health"): 3/3 agents succeeded in parallel, 80 claims / 64 sources, with credibility spread across high (nih.gov, harvard.edu, europa.eu), mid (ahajournals.org, endocrine.org), and low (commercial/blog) — persisted and attributed per agent in Neon
+
+**Fixed**
+
+- Search-grounding returns redirect-wrapper URLs with the real domain in the citation title; credibility scoring now reads that domain instead of scoring the wrapper (which had made every source "low")
+
+**Next**
+
+- Milestone 3b: contradiction detection across agents' claims, confidence adjustment from agreement, and the evaluation scoring harness
+
 ## [0.3.0] — 2026-07-09 · Milestone 2: Single-agent research flow
 
 **Shipped**

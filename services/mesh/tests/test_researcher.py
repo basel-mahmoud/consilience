@@ -8,7 +8,7 @@ class FakeLlm:
         self._extraction = extraction
         self.extract_args: tuple | None = None
 
-    async def grounded_answer(self, question: str) -> GroundedAnswer:
+    async def grounded_answer(self, question: str, guidance: str | None = None) -> GroundedAnswer:
         return self._grounded
 
     async def extract_claims(self, question, answer, sources) -> ClaimExtraction:
@@ -34,6 +34,8 @@ async def test_maps_sources_and_claims_with_positions():
 
     assert [s.position for s in result.sources] == [1, 2]
     assert result.sources[0].url == "https://a.example/x"
+    # Sources are credibility-scored during mapping
+    assert result.sources[0].credibility in {"high", "mid", "low"}
     assert result.summary == "A summary."
     assert result.claims[0].text == "First claim."
     assert result.claims[0].source_positions == [1, 2]

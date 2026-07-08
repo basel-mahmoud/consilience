@@ -8,9 +8,11 @@ public sealed record RunListItem(
     Guid Id, string Question, string Status, DateTime CreatedAt, DateTime? CompletedAt,
     int ClaimCount, int SourceCount);
 
-public sealed record RunSource(int Position, string Url, string? Title);
+public sealed record RunSource(
+    int Position, string Url, string? Title, string? Credibility, string? Agent);
 
-public sealed record RunClaim(int Position, string Text, string Confidence, int[] SourcePositions);
+public sealed record RunClaim(
+    int Position, string Text, string Confidence, int[] SourcePositions, string? Agent);
 
 public sealed record RunDetail(
     Guid Id, string Question, string Status, string? Summary, string? Error,
@@ -104,8 +106,11 @@ public sealed class PostgresRunStore(NpgsqlDataSource dataSource) : IRunStore
             SELECT c.position, c.text, c.confidence,
                    COALESCE((SELECT array_agg(s.position ORDER BY s.position)
                              FROM claim_sources cs JOIN sources s ON s.id = cs.source_id
-                             WHERE cs.claim_id = c.id), '{}')
-            FROM claims c WHERE c.run_id = $1 ORDER BY c.position
+                             WHERE cs.claim_id = c.id), '{}'),
+                   ra.lens
+            FROM claims c
+            LEFT JOIN run_agents ra ON ra.id = c.run_agent_id
+            WHERE c.run_id = $1 ORDER BY c.position
             """, connection))
         {
             claimCommand.Parameters.AddWithValue(runId);
@@ -114,14 +119,19 @@ public sealed class PostgresRunStore(NpgsqlDataSource dataSource) : IRunStore
             {
                 claims.Add(new RunClaim(
                     reader.GetInt32(0), reader.GetString(1), reader.GetString(2),
-                    reader.GetFieldValue<int[]>(3)));
+                    reader.GetFieldValue<int[]>(3),
+                    reader.IsDBNull(4) ? null : reader.GetString(4)));
             }
         }
 
         var sources = new List<RunSource>();
         await using (var sourceCommand = new NpgsqlCommand(
-            "SELECT position, url, title FROM sources WHERE run_id = $1 ORDER BY position",
-            connection))
+            """
+            SELECT s.position, s.url, s.title, s.credibility, ra.lens
+            FROM sources s
+            LEFT JOIN run_agents ra ON ra.id = s.run_agent_id
+            WHERE s.run_id = $1 ORDER BY s.position
+            """, connection))
         {
             sourceCommand.Parameters.AddWithValue(runId);
             await using var reader = await sourceCommand.ExecuteReaderAsync(ct);
@@ -129,7 +139,9 @@ public sealed class PostgresRunStore(NpgsqlDataSource dataSource) : IRunStore
             {
                 sources.Add(new RunSource(
                     reader.GetInt32(0), reader.GetString(1),
-                    reader.IsDBNull(2) ? null : reader.GetString(2)));
+                    reader.IsDBNull(2) ? null : reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetString(3),
+                    reader.IsDBNull(4) ? null : reader.GetString(4)));
             }
         }
 

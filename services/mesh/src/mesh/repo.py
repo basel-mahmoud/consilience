@@ -6,7 +6,7 @@ from uuid import UUID
 
 import asyncpg
 
-from mesh.schemas import ResearchResult
+from mesh.schemas import MeshResult
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +44,10 @@ class RunRepository:
         )
         return result == "UPDATE 1"
 
-    async def save_result(self, run_id: UUID, user_id: UUID, result: ResearchResult) -> None:
+    async def save_mesh_result(self, run_id: UUID, user_id: UUID, mesh: MeshResult) -> None:
+        """Persist all agents, their credibility-scored sources, and attributed
+        claims in one transaction. Source and claim positions are numbered
+        globally across agents so the run-level lists render in a stable order."""
         async with self._pool.acquire() as conn, conn.transaction():
             updated = await conn.execute(
                 """
@@ -53,36 +56,56 @@ class RunRepository:
                 """,
                 run_id,
                 user_id,
-                result.summary,
+                mesh.summary,
             )
             if updated != "UPDATE 1":
                 raise RuntimeError(f"run {run_id} not in running state for user {user_id}")
 
-            source_ids: dict[int, UUID] = {}
-            for source in result.sources:
-                source_ids[source.position] = await conn.fetchval(
-                    "INSERT INTO sources (run_id, position, url, title)"
-                    " VALUES ($1, $2, $3, $4) RETURNING id",
+            source_position = 0
+            claim_position = 0
+            for agent in mesh.agents:
+                agent_id = await conn.fetchval(
+                    "INSERT INTO run_agents (run_id, lens, status, completed_at)"
+                    " VALUES ($1, $2, 'completed', now()) RETURNING id",
                     run_id,
-                    source.position,
-                    source.url,
-                    source.title,
+                    agent.lens_label,
                 )
-            for claim in result.claims:
-                claim_id = await conn.fetchval(
-                    "INSERT INTO claims (run_id, position, text, confidence)"
-                    " VALUES ($1, $2, $3, $4) RETURNING id",
-                    run_id,
-                    claim.position,
-                    claim.text,
-                    claim.confidence,
-                )
-                for position in claim.source_positions:
-                    await conn.execute(
-                        "INSERT INTO claim_sources (claim_id, source_id) VALUES ($1, $2)",
-                        claim_id,
-                        source_ids[position],
+
+                # Map this agent's local source positions to the inserted rows
+                local_source_ids: dict[int, UUID] = {}
+                for source in agent.result.sources:
+                    source_position += 1
+                    local_source_ids[source.position] = await conn.fetchval(
+                        "INSERT INTO sources"
+                        " (run_id, run_agent_id, position, url, title, credibility,"
+                        "  credibility_rationale)"
+                        " VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+                        run_id,
+                        agent_id,
+                        source_position,
+                        source.url,
+                        source.title,
+                        source.credibility,
+                        source.credibility_rationale,
                     )
+
+                for claim in agent.result.claims:
+                    claim_position += 1
+                    claim_id = await conn.fetchval(
+                        "INSERT INTO claims (run_id, run_agent_id, position, text, confidence)"
+                        " VALUES ($1, $2, $3, $4, $5) RETURNING id",
+                        run_id,
+                        agent_id,
+                        claim_position,
+                        claim.text,
+                        claim.confidence,
+                    )
+                    for position in claim.source_positions:
+                        await conn.execute(
+                            "INSERT INTO claim_sources (claim_id, source_id) VALUES ($1, $2)",
+                            claim_id,
+                            local_source_ids[position],
+                        )
 
     async def mark_failed(self, run_id: UUID, user_id: UUID, error: str) -> None:
         await self._pool.execute(

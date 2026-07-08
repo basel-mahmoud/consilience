@@ -1,17 +1,20 @@
 # Mesh (Python)
 
-The agent runtime. As of Milestone 2 it runs the **single-agent research flow**:
+The agent runtime. As of Milestone 3a it runs the **parallel multi-agent mesh**:
 
 1. Consumes `run.requested` from RabbitMQ ([contract](../../packages/contracts/messages))
 2. Claims the run (`queued → running`, scoped by `user_id`)
-3. Grounded search via Gemini (search-capable model) → answer + real sources
-4. Claim extraction (structured output): each claim gets a confidence and its citations
-5. Persists summary, claims, sources, and claim↔source links to Neon in one transaction
-6. Marks the run `completed` (or `failed`, dead-lettering the message)
+3. Fans out one agent per **lens** (primary evidence, expert analysis, skeptical review),
+   running them concurrently — each does its own grounded Gemini search and claim extraction
+4. Scores every source's **credibility** (`high`/`mid`/`low`) by domain class
+5. Synthesizes a run-level answer across the agents (stronger synthesis model)
+6. Persists per-agent rows, attributed claims, and credibility-scored sources in one transaction
+7. Marks the run `completed` (or `failed`, dead-lettering the message)
 
-LLM routing (cheap search model vs. stronger synthesis model), retry-with-backoff, and
-prompt-injection-safe handling of retrieved web content are in place; the multi-agent mesh,
-contradiction detection, and credibility ranking arrive in Milestone 3.
+Partial failure is tolerated: if some agents fail the run completes on the survivors; only a
+total wipeout fails. LLM model routing, retry-with-backoff, and prompt-injection-safe handling
+of retrieved web content are in place. Contradiction detection across agents and the evaluation
+harness arrive in Milestone 3b.
 
 ## Run
 
@@ -43,8 +46,11 @@ invalid-message → dead-letter). They use fakes — no broker, database, or LLM
 | Module | Responsibility |
 |---|---|
 | `worker.py` | RabbitMQ consumer, ack/reject + dead-letter policy, run lifecycle |
-| `researcher.py` | Single-agent flow: grounded answer → validated claims + sources |
-| `llm.py` | Gemini client, model router, retry/backoff, structured claim schema |
+| `orchestrator.py` | Fans out agents per lens in parallel, tolerates partial failure, synthesizes |
+| `researcher.py` | One agent: grounded answer → credibility-scored sources + validated claims |
+| `lenses.py` | The distinct research angles each parallel agent takes |
+| `credibility.py` | Deterministic source-credibility scoring by domain class |
+| `llm.py` | Gemini client, model router, retry/backoff, structured claim + synthesis |
 | `repo.py` | Postgres persistence, all statements scoped by `user_id` |
 | `schemas.py` | Pydantic models mirroring the message + result contracts |
 | `config.py` | Environment configuration |

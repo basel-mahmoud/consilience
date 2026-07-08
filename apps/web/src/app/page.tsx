@@ -37,7 +37,7 @@ export default async function Home() {
         </a>
       </div>
       <p className="fixed bottom-6 font-mono text-xs text-ink-muted">
-        milestone 1 · auth online
+        milestone 3 · multi-agent mesh
       </p>
     </main>
   );

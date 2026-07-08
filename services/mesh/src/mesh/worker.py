@@ -11,9 +11,10 @@ from pydantic import ValidationError
 
 from mesh.config import Config
 from mesh.llm import GeminiClient, ModelRouter
+from mesh.orchestrator import Orchestrator
 from mesh.repo import RunRepository
 from mesh.researcher import Researcher
-from mesh.schemas import ResearchResult, RunRequested
+from mesh.schemas import MeshResult, RunRequested
 
 log = logging.getLogger(__name__)
 
@@ -29,15 +30,15 @@ class InvalidMessage(Exception):
 
 class RunStore(Protocol):
     async def claim_run(self, run_id: UUID, user_id: UUID) -> bool: ...
-    async def save_result(self, run_id: UUID, user_id: UUID, result: ResearchResult) -> None: ...
+    async def save_mesh_result(self, run_id: UUID, user_id: UUID, mesh: MeshResult) -> None: ...
     async def mark_failed(self, run_id: UUID, user_id: UUID, error: str) -> None: ...
 
 
-class Research(Protocol):
-    async def research(self, question: str) -> ResearchResult: ...
+class Mesh(Protocol):
+    async def run(self, question: str) -> MeshResult: ...
 
 
-async def handle_message(body: bytes, repo: RunStore, researcher: Research) -> None:
+async def handle_message(body: bytes, repo: RunStore, mesh: Mesh) -> None:
     try:
         message = RunRequested.model_validate(json.loads(body))
     except (ValidationError, ValueError) as exc:
@@ -51,20 +52,23 @@ async def handle_message(body: bytes, repo: RunStore, researcher: Research) -> N
 
     log.info("run %s started: %.60s…", message.run_id, message.question)
     try:
-        result = await researcher.research(message.question)
-        await repo.save_result(message.run_id, message.user_id, result)
+        result = await mesh.run(message.question)
+        await repo.save_mesh_result(message.run_id, message.user_id, result)
     except Exception as exc:
         await repo.mark_failed(message.run_id, message.user_id, str(exc))
         raise
+    total_claims = sum(len(a.result.claims) for a in result.agents)
+    total_sources = sum(len(a.result.sources) for a in result.agents)
     log.info(
-        "run %s completed: %d claims, %d sources",
-        message.run_id, len(result.claims), len(result.sources),
+        "run %s completed: %d agents, %d claims, %d sources",
+        message.run_id, len(result.agents), total_claims, total_sources,
     )
 
 
 async def consume(config: Config) -> None:
     repo = await RunRepository.connect(config.database_url)
-    researcher = Researcher(GeminiClient(config, ModelRouter(config)))
+    llm = GeminiClient(config, ModelRouter(config))
+    mesh = Orchestrator(agent=Researcher(llm), synthesizer=llm)
 
     connection = await aio_pika.connect_robust(config.rabbitmq_url)
     async with connection:
@@ -86,7 +90,7 @@ async def consume(config: Config) -> None:
         async with queue.iterator() as messages:
             async for message in messages:
                 try:
-                    await handle_message(message.body, repo, researcher)
+                    await handle_message(message.body, repo, mesh)
                     await message.ack()
                 except InvalidMessage:
                     log.exception("invalid message — dead-lettering")

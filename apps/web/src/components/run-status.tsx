@@ -32,3 +32,29 @@ export function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
     </span>
   );
 }
+
+const credibilityStyles: Record<Confidence, string> = {
+  high: "text-confidence-high",
+  mid: "text-confidence-mid",
+  low: "text-confidence-low",
+};
+
+export function CredibilityDot({ credibility }: { credibility: Confidence }) {
+  return (
+    <span
+      title={`${credibility} credibility source`}
+      className={`inline-flex items-center gap-1 font-mono text-[11px] uppercase ${credibilityStyles[credibility]}`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {credibility}
+    </span>
+  );
+}
+
+export function AgentTag({ label }: { label: string }) {
+  return (
+    <span className="rounded-full border border-line px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-ink-muted">
+      {label}
+    </span>
+  );
+}

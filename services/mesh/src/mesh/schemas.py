@@ -24,6 +24,8 @@ class Source(BaseModel):
     position: int
     url: str
     title: str | None = None
+    credibility: Confidence | None = None
+    credibility_rationale: str | None = None
 
 
 class Claim(BaseModel):
@@ -34,6 +36,23 @@ class Claim(BaseModel):
 
 
 class ResearchResult(BaseModel):
+    """Output of a single research agent (Milestone 2, and one lens in M3)."""
+
     summary: str
     claims: list[Claim]
     sources: list[Source]
+
+
+class AgentResult(BaseModel):
+    """One lens's contribution to a multi-agent run."""
+
+    lens_key: str
+    lens_label: str
+    result: ResearchResult
+
+
+class MeshResult(BaseModel):
+    """Aggregate of all agents in a run, plus the cross-agent synthesis."""
+
+    summary: str
+    agents: list[AgentResult]
