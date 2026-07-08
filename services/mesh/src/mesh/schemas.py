@@ -51,8 +51,28 @@ class AgentResult(BaseModel):
     result: ResearchResult
 
 
+class Contradiction(BaseModel):
+    """A pair of claims that disagree, referenced by global claim index (0-based,
+    in agent order — the same order the repository persists claims)."""
+
+    claim_a: int
+    claim_b: int
+    explanation: str
+
+
+class Evaluation(BaseModel):
+    """One quality metric for a run, scored 0..1."""
+
+    metric: str
+    score: float = Field(ge=0.0, le=1.0)
+    rationale: str
+
+
 class MeshResult(BaseModel):
-    """Aggregate of all agents in a run, plus the cross-agent synthesis."""
+    """Aggregate of all agents in a run, plus cross-agent synthesis, the
+    contradictions found between agents, and the run's evaluation scores."""
 
     summary: str
     agents: list[AgentResult]
+    contradictions: list[Contradiction] = []
+    evaluations: list[Evaluation] = []

@@ -60,15 +60,16 @@ async def handle_message(body: bytes, repo: RunStore, mesh: Mesh) -> None:
     total_claims = sum(len(a.result.claims) for a in result.agents)
     total_sources = sum(len(a.result.sources) for a in result.agents)
     log.info(
-        "run %s completed: %d agents, %d claims, %d sources",
+        "run %s completed: %d agents, %d claims, %d sources, %d contradictions",
         message.run_id, len(result.agents), total_claims, total_sources,
+        len(result.contradictions),
     )
 
 
 async def consume(config: Config) -> None:
     repo = await RunRepository.connect(config.database_url)
     llm = GeminiClient(config, ModelRouter(config))
-    mesh = Orchestrator(agent=Researcher(llm), synthesizer=llm)
+    mesh = Orchestrator(agent=Researcher(llm), synthesizer=llm, finder=llm)
 
     connection = await aio_pika.connect_robust(config.rabbitmq_url)
     async with connection:

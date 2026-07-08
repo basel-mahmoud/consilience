@@ -61,6 +61,9 @@ class RunRepository:
             if updated != "UPDATE 1":
                 raise RuntimeError(f"run {run_id} not in running state for user {user_id}")
 
+            # claim_ids[i] is the id of the i-th claim in persistence order,
+            # matching the global index the contradiction detector referenced.
+            claim_ids: list[UUID] = []
             source_position = 0
             claim_position = 0
             for agent in mesh.agents:
@@ -100,12 +103,35 @@ class RunRepository:
                         claim.text,
                         claim.confidence,
                     )
+                    claim_ids.append(claim_id)
                     for position in claim.source_positions:
                         await conn.execute(
                             "INSERT INTO claim_sources (claim_id, source_id) VALUES ($1, $2)",
                             claim_id,
                             local_source_ids[position],
                         )
+
+            for c in mesh.contradictions:
+                if c.claim_a < len(claim_ids) and c.claim_b < len(claim_ids):
+                    await conn.execute(
+                        "INSERT INTO contradictions"
+                        " (run_id, claim_a_id, claim_b_id, explanation)"
+                        " VALUES ($1, $2, $3, $4)",
+                        run_id,
+                        claim_ids[c.claim_a],
+                        claim_ids[c.claim_b],
+                        c.explanation,
+                    )
+
+            for e in mesh.evaluations:
+                await conn.execute(
+                    "INSERT INTO run_evaluations (run_id, metric, score, rationale)"
+                    " VALUES ($1, $2, $3, $4)",
+                    run_id,
+                    e.metric,
+                    e.score,
+                    e.rationale,
+                )
 
     async def mark_failed(self, run_id: UUID, user_id: UUID, error: str) -> None:
         await self._pool.execute(

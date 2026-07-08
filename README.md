@@ -58,8 +58,8 @@ Services communicate through documented contracts in [`packages/contracts`](pack
 | 1 | Auth end-to-end (Clerk ↔ .NET gateway), dashboard shell, theme toggle | ✅ Shipped |
 | 2 | Single-agent research flow (Python mesh + RabbitMQ), sources & citations | ✅ Shipped |
 | 3a | Parallel multi-agent mesh, source credibility ranking, per-agent attribution | ✅ Shipped |
-| 3b | Contradiction detection across agents, evaluation scoring harness | ⏳ Next |
-| 4 | Workflow engine: queue, retries, rate limits, approval gates | Planned |
+| 3b | Contradiction detection across agents, evaluation scoring harness | ✅ Shipped |
+| 4 | Workflow engine: queue, retries, rate limits, approval gates | ⏳ Next |
 | 5 | Real-time trace UI, report export | Planned |
 | 6 | Security hardening audit | Planned |
 | 7 | Full testing pass (unit/integration/e2e/load) | Planned |

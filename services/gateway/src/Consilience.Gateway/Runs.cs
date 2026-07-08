@@ -14,9 +14,14 @@ public sealed record RunSource(
 public sealed record RunClaim(
     int Position, string Text, string Confidence, int[] SourcePositions, string? Agent);
 
+public sealed record RunContradiction(int ClaimA, int ClaimB, string Explanation);
+
+public sealed record RunEvaluation(string Metric, double Score, string Rationale);
+
 public sealed record RunDetail(
     Guid Id, string Question, string Status, string? Summary, string? Error,
-    DateTime CreatedAt, DateTime? CompletedAt, RunClaim[] Claims, RunSource[] Sources);
+    DateTime CreatedAt, DateTime? CompletedAt, RunClaim[] Claims, RunSource[] Sources,
+    RunContradiction[] Contradictions, RunEvaluation[] Evaluations);
 
 /// <summary>packages/contracts/messages/research-run-requested.v1.json</summary>
 public sealed record RunRequestedMessage(Guid RunId, Guid UserId, string Question, DateTimeOffset RequestedAt);
@@ -145,9 +150,42 @@ public sealed class PostgresRunStore(NpgsqlDataSource dataSource) : IRunStore
             }
         }
 
+        var contradictions = new List<RunContradiction>();
+        await using (var command = new NpgsqlCommand(
+            """
+            SELECT ca.position, cb.position, x.explanation
+            FROM contradictions x
+            JOIN claims ca ON ca.id = x.claim_a_id
+            JOIN claims cb ON cb.id = x.claim_b_id
+            WHERE x.run_id = $1 ORDER BY ca.position
+            """, connection))
+        {
+            command.Parameters.AddWithValue(runId);
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                contradictions.Add(new RunContradiction(
+                    reader.GetInt32(0), reader.GetInt32(1), reader.GetString(2)));
+            }
+        }
+
+        var evaluations = new List<RunEvaluation>();
+        await using (var command = new NpgsqlCommand(
+            "SELECT metric, score, rationale FROM run_evaluations WHERE run_id = $1 ORDER BY metric",
+            connection))
+        {
+            command.Parameters.AddWithValue(runId);
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                evaluations.Add(new RunEvaluation(
+                    reader.GetString(0), reader.GetFloat(1), reader.GetString(2)));
+            }
+        }
+
         return new RunDetail(
             runId, question, status, summary, error, createdAt, completedAt,
-            [.. claims], [.. sources]);
+            [.. claims], [.. sources], [.. contradictions], [.. evaluations]);
     }
 
     public async Task MarkFailedAsync(Guid userId, Guid runId, string error, CancellationToken ct)

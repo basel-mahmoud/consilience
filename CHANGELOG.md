@@ -2,6 +2,26 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [0.5.0] — 2026-07-09 · Milestone 3b: Contradiction detection + evaluation
+
+**Shipped**
+
+- Cross-agent **contradiction detection**: after the agents produce their claims, a synthesis-model pass identifies pairs of claims that genuinely conflict (validated to in-range, non-self, deduped pairs); results persist to a new `contradictions` table linking the two claims with an explanation
+- **Confidence downgrade on disagreement**: any claim caught in a contradiction has its confidence lowered one level (high→mid→low) — the mesh's core idea that unchallenged claims are trusted more than contested ones, made concrete
+- **Evaluation harness** (`evaluation.py`, deterministic, no LLM): scores every run 0–1 on grounding (claims that cite sources), source quality (credibility-weighted), consistency (1 − share of contradicted claims), and corroboration (share of agents contributing); persists to `run_evaluations`
+- Resilience: contradiction detection and synthesis failures are non-fatal (the run still completes); both covered by tests
+- Gateway run detail returns contradictions (as claim-position pairs) and evaluation scores; the run view adds an evaluation panel and a contradictions section, and numbers each claim so citations and contradiction references resolve
+- Tests: mesh suite grows to 38 (evaluation metrics with exact expected values incl. divide-by-zero guards, contradiction downgrade, finder-failure tolerance); gateway 15 still green
+
+**Verified**
+
+- Live run on a deliberately contested question ("is nuclear power safe and cost-effective?"): 3/3 agents, 26 claims, **25 contradictions** surfaced; confidence redistributed to 3 high / 17 mid / 6 low by the downgrade pass; evaluation scored grounding 1.0, source quality 0.61, corroboration 1.0, and **consistency 0.15** — correctly flagging the topic as heavily disputed
+- Resilience verified live under real Gemini free-tier quota exhaustion: agents retried with backoff, then failed gracefully; the run was marked failed and its message dead-lettered exactly as designed
+
+**Next**
+
+- Milestone 4: Java workflow/event engine — job queue, retries with backoff, rate limiting, and the human-in-the-loop approval gate before risky agent actions
+
 ## [0.4.0] — 2026-07-09 · Milestone 3a: Parallel multi-agent mesh + credibility
 
 **Shipped**

@@ -29,6 +29,18 @@ export interface RunSource {
   agent: string | null;
 }
 
+export interface RunContradiction {
+  claimA: number;
+  claimB: number;
+  explanation: string;
+}
+
+export interface RunEvaluation {
+  metric: string;
+  score: number;
+  rationale: string;
+}
+
 export interface RunDetail {
   id: string;
   question: string;
@@ -39,6 +51,8 @@ export interface RunDetail {
   completedAt: string | null;
   claims: RunClaim[];
   sources: RunSource[];
+  contradictions: RunContradiction[];
+  evaluations: RunEvaluation[];
 }
 
 export class GatewayUnavailableError extends Error {}

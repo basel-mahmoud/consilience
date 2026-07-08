@@ -9,6 +9,7 @@ import {
   StatusPill,
 } from "@/components/run-status";
 import { RunAutoRefresh } from "@/components/run-auto-refresh";
+import { EvaluationPanel } from "@/components/evaluation-panel";
 
 export const metadata: Metadata = {
   title: "Run",
@@ -113,6 +114,36 @@ export default async function RunPage({
             </section>
           )}
 
+          {run.evaluations.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="font-mono text-xs uppercase tracking-widest text-ink-muted">
+                Evaluation
+              </h2>
+              <EvaluationPanel evaluations={run.evaluations} />
+            </section>
+          )}
+
+          {run.contradictions.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="font-mono text-xs uppercase tracking-widest text-ink-muted">
+                Contradictions ({run.contradictions.length})
+              </h2>
+              <ul className="space-y-2">
+                {run.contradictions.map((c, i) => (
+                  <li
+                    key={i}
+                    className="rounded-lg border border-confidence-mid/40 bg-confidence-mid/5 p-4"
+                  >
+                    <p className="text-sm leading-6">{c.explanation}</p>
+                    <p className="mt-2 font-mono text-xs text-ink-muted">
+                      between claims [{c.claimA}] and [{c.claimB}]
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="space-y-4">
             <h2 className="font-mono text-xs uppercase tracking-widest text-ink-muted">
               Claims ({run.claims.length})
@@ -121,17 +152,22 @@ export default async function RunPage({
               {run.claims.map((claim) => (
                 <li
                   key={claim.position}
-                  className="space-y-2 rounded-lg border border-line bg-surface p-4"
+                  className="flex gap-3 rounded-lg border border-line bg-surface p-4"
                 >
-                  <p className="leading-7">{claim.text}</p>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <ConfidenceBadge confidence={claim.confidence} />
-                    {claim.sourcePositions.length > 0 && (
-                      <span className="font-mono text-xs text-ink-muted">
-                        {claim.sourcePositions.map((p) => `[${p}]`).join(" ")}
-                      </span>
-                    )}
-                    {claim.agent && <AgentTag label={claim.agent} />}
+                  <span className="pt-0.5 font-mono text-xs text-ink-muted">
+                    [{claim.position}]
+                  </span>
+                  <div className="min-w-0 space-y-2">
+                    <p className="leading-7">{claim.text}</p>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <ConfidenceBadge confidence={claim.confidence} />
+                      {claim.sourcePositions.length > 0 && (
+                        <span className="font-mono text-xs text-ink-muted">
+                          {claim.sourcePositions.map((p) => `[${p}]`).join(" ")}
+                        </span>
+                      )}
+                      {claim.agent && <AgentTag label={claim.agent} />}
+                    </div>
                   </div>
                 </li>
               ))}
