@@ -36,5 +36,21 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet test --nologo
 
-  # Mesh (Python) and Engine (Java) jobs are added in the milestone that
-  # introduces each service — every service ships with CI.
+  mesh:
+    name: Mesh — lint & tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/mesh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check
+      - run: uv run pytest -q
+
+  # Engine (Java) job is added in the milestone that introduces the service —
+  # every service ships with CI.

@@ -1,0 +1,109 @@
+"""RabbitMQ consumer: takes ResearchRunRequested messages through the research flow."""
+
+import asyncio
+import json
+import logging
+from typing import Protocol
+from uuid import UUID
+
+import aio_pika
+from pydantic import ValidationError
+
+from mesh.config import Config
+from mesh.llm import GeminiClient, ModelRouter
+from mesh.repo import RunRepository
+from mesh.researcher import Researcher
+from mesh.schemas import ResearchResult, RunRequested
+
+log = logging.getLogger(__name__)
+
+EXCHANGE = "consilience"
+DLX = "consilience.dlx"
+QUEUE = "mesh.run-requests"
+ROUTING_KEY = "run.requested"
+
+
+class InvalidMessage(Exception):
+    """Message fails schema validation — reject to DLQ, never requeue."""
+
+
+class RunStore(Protocol):
+    async def claim_run(self, run_id: UUID, user_id: UUID) -> bool: ...
+    async def save_result(self, run_id: UUID, user_id: UUID, result: ResearchResult) -> None: ...
+    async def mark_failed(self, run_id: UUID, user_id: UUID, error: str) -> None: ...
+
+
+class Research(Protocol):
+    async def research(self, question: str) -> ResearchResult: ...
+
+
+async def handle_message(body: bytes, repo: RunStore, researcher: Research) -> None:
+    try:
+        message = RunRequested.model_validate(json.loads(body))
+    except (ValidationError, ValueError) as exc:
+        raise InvalidMessage(str(exc)) from exc
+
+    claimed = await repo.claim_run(message.run_id, message.user_id)
+    if not claimed:
+        # Already completed/failed (e.g. redelivery after a late ack) — idempotent skip
+        log.warning("run %s not claimable, skipping", message.run_id)
+        return
+
+    log.info("run %s started: %.60s…", message.run_id, message.question)
+    try:
+        result = await researcher.research(message.question)
+        await repo.save_result(message.run_id, message.user_id, result)
+    except Exception as exc:
+        await repo.mark_failed(message.run_id, message.user_id, str(exc))
+        raise
+    log.info(
+        "run %s completed: %d claims, %d sources",
+        message.run_id, len(result.claims), len(result.sources),
+    )
+
+
+async def consume(config: Config) -> None:
+    repo = await RunRepository.connect(config.database_url)
+    researcher = Researcher(GeminiClient(config, ModelRouter(config)))
+
+    connection = await aio_pika.connect_robust(config.rabbitmq_url)
+    async with connection:
+        channel = await connection.channel()
+        await channel.set_qos(prefetch_count=2)
+
+        await channel.declare_exchange(EXCHANGE, aio_pika.ExchangeType.TOPIC, durable=True)
+        dlx = await channel.declare_exchange(DLX, aio_pika.ExchangeType.TOPIC, durable=True)
+        dlq = await channel.declare_queue(f"{QUEUE}.dlq", durable=True)
+        await dlq.bind(dlx, routing_key="#")
+        queue = await channel.declare_queue(
+            QUEUE, durable=True, arguments={"x-dead-letter-exchange": DLX}
+        )
+        await queue.bind(EXCHANGE, routing_key=ROUTING_KEY)
+
+        log.info("mesh worker consuming %s (search=%s, synthesis=%s)",
+                 QUEUE, config.search_model, config.synthesis_model)
+
+        async with queue.iterator() as messages:
+            async for message in messages:
+                try:
+                    await handle_message(message.body, repo, researcher)
+                    await message.ack()
+                except InvalidMessage:
+                    log.exception("invalid message — dead-lettering")
+                    await message.reject(requeue=False)
+                except Exception:
+                    # Run already marked failed; engine-driven retries arrive in M4
+                    log.exception("run processing failed — dead-lettering")
+                    await message.reject(requeue=False)
+
+
+def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='{"ts":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}',
+    )
+    asyncio.run(consume(Config.from_env()))
+
+
+if __name__ == "__main__":
+    main()

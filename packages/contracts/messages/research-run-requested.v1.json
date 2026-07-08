@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/basel-mahmoud/consilience/packages/contracts/messages/research-run-requested.v1.json",
+  "title": "ResearchRunRequested",
+  "description": "Published by the gateway when a user starts a research run. Consumed by the mesh (M2) and later routed through the engine (M4). Exchange: `consilience` (topic), routing key: `run.requested`.",
+  "type": "object",
+  "required": ["runId", "userId", "question", "requestedAt"],
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The runs.id row created by the gateway before publishing"
+    },
+    "userId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Internal users.id (never the raw Clerk id) — consumers scope all writes by it"
+    },
+    "question": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "requestedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

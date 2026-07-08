@@ -56,8 +56,8 @@ Services communicate through documented contracts in [`packages/contracts`](pack
 |---|---|---|
 | 0 | Repo, architecture, brand, design system, DB + auth provisioning, CI | ✅ Shipped |
 | 1 | Auth end-to-end (Clerk ↔ .NET gateway), dashboard shell, theme toggle | ✅ Shipped |
-| 2 | Single-agent research flow, source retrieval, citations | ⏳ Next |
-| 3 | Multi-agent mesh, contradiction detection, eval harness | Planned |
+| 2 | Single-agent research flow (Python mesh + RabbitMQ), sources & citations | ✅ Shipped |
+| 3 | Multi-agent mesh, contradiction detection, eval harness | ⏳ Next |
 | 4 | Workflow engine: queue, retries, rate limits, approval gates | Planned |
 | 5 | Real-time trace UI, report export | Planned |
 | 6 | Security hardening audit | Planned |
@@ -76,12 +76,19 @@ npm install
 cp ../../.env.example .env.local   # fill in values — see comments in the file
 npm run dev
 
+# Broker (Docker) — or use any local RabbitMQ
+docker compose -f infra/docker-compose.yml up -d
+
 # Gateway (requires .NET 10 SDK)
 cd services/gateway/src/Consilience.Gateway
-DATABASE_URL="postgresql://…" dotnet run   # http://localhost:5180
+DATABASE_URL="postgresql://…" RABBITMQ_URL="amqp://guest:guest@localhost:5672" dotnet run
+
+# Mesh worker (requires uv + a GEMINI_API_KEY)
+cd services/mesh
+uv run python -m mesh.worker
 ```
 
-The dashboard footer shows live gateway session status: with the gateway running, it confirms the JWT verified end-to-end; without it, the app runs web-only. Remaining services (`mesh`, `engine`) gain run instructions as they come online in Milestones 2–4. All environment variables are documented in [`.env.example`](.env.example); no secrets are ever committed.
+With all three running, a research question submitted in the dashboard is dispatched by the gateway over RabbitMQ, researched by the mesh, and streamed back into the run view (polling in M2; live WebSocket trace in M5). Without the gateway, the app runs in web-only mode. The `engine` service comes online in Milestone 4. All environment variables are documented in [`.env.example`](.env.example); no secrets are ever committed.
 
 ## Documentation
 

@@ -2,6 +2,31 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [0.3.0] — 2026-07-09 · Milestone 2: Single-agent research flow
+
+**Shipped**
+
+- Python mesh service (`services/mesh`): consumes `run.requested` from RabbitMQ, runs a single research agent (Gemini grounded search → structured claim extraction), and persists summary, claims, sources, and claim↔source citations to Neon in one transaction
+- Message broker: RabbitMQ topology (topic exchange `consilience`, durable queue `mesh.run-requests`, dead-letter exchange for poison messages); the first schema (`ResearchRunRequested` v1) lives in `packages/contracts`
+- Gateway run API: `POST /api/runs` (validates, enforces a 3-active-run cap with 429, creates the row, publishes with broker confirms, marks failed on dispatch error), `GET /api/runs`, `GET /api/runs/{id}` — all ownership-scoped by internal user id
+- New Neon tables (`runs`, `sources`, `claims`, `claim_sources`) with indexes, applied via the Neon MCP migration flow
+- Frontend research flow: "Start research run" form (server action), runs list with status pills, and a run detail page rendering claims with per-claim confidence and numbered source citations; in-progress runs poll until complete, with graceful degradation when the gateway is absent (deployed web-only mode)
+- LLM model routing (cheap search model vs. configurable synthesis model), retry-with-backoff for external calls, and prompt-injection-safe handling of retrieved web content
+- Tests: 15 gateway integration tests (run creation, validation, 429, ownership 404) and 12 mesh tests (contract validation, claim/source mapping with hallucinated-citation dropping and unsourced-claim downgrade, worker dispatch/failure/dead-letter); CI gains a Python (uv + ruff + pytest) job; Dependabot covers uv
+
+**Verified**
+
+- Full pipeline exercised end-to-end with a live Gemini run: a real question produced 33 claims with 151 claim→source citations across 12 sources, written to Neon and marked completed in 29s
+
+**Architecture notes**
+
+- Claims that cite only sources the agent didn't actually retrieve are downgraded to low confidence — a guard against ungrounded assertions that becomes richer with multi-agent cross-checking in M3
+- Redelivered messages re-claim `running` runs so a mid-flight worker crash restarts cleanly rather than stranding the run
+
+**Next**
+
+- Milestone 3: multiple parallel agents, contradiction detection, credibility ranking, evaluation harness
+
 ## [0.2.0] — 2026-07-08 · Milestone 1: Auth end-to-end
 
 **Shipped**

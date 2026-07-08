@@ -1,39 +1,18 @@
 import type { Metadata } from "next";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
 import { Logo } from "@/components/logo";
+import { NewRunForm } from "@/components/new-run-form";
+import { StatusPill } from "@/components/run-status";
+import {
+  isGatewayConfigured,
+  listRuns,
+  type RunListItem,
+} from "@/lib/gateway";
 
 export const metadata: Metadata = {
   title: "Overview",
 };
-
-type GatewayStatus =
-  | { state: "unconfigured" }
-  | { state: "offline" }
-  | { state: "error"; code: number }
-  | { state: "ok"; userId: string };
-
-/**
- * Proves the auth path end-to-end: the gateway independently verifies the
- * Clerk JWT against JWKS and answers with the identity it derived.
- */
-async function getGatewayStatus(): Promise<GatewayStatus> {
-  const url = process.env.NEXT_PUBLIC_GATEWAY_URL;
-  if (!url) return { state: "unconfigured" };
-  try {
-    const { getToken } = await auth();
-    const token = await getToken();
-    const res = await fetch(`${url}/api/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-      signal: AbortSignal.timeout(3000),
-    });
-    if (!res.ok) return { state: "error", code: res.status };
-    const me = (await res.json()) as { userId: string };
-    return { state: "ok", userId: me.userId };
-  } catch {
-    return { state: "offline" };
-  }
-}
 
 function greeting() {
   const h = new Date().getHours();
@@ -43,14 +22,18 @@ function greeting() {
   return "Good evening";
 }
 
-const stats = [
-  { label: "Research runs", value: "0" },
-  { label: "Claims verified", value: "0" },
-  { label: "Sources evaluated", value: "0" },
-];
+async function loadRuns(): Promise<{ runs: RunListItem[]; reachable: boolean }> {
+  if (!isGatewayConfigured()) return { runs: [], reachable: false };
+  try {
+    return { runs: await listRuns(), reachable: true };
+  } catch {
+    return { runs: [], reachable: false };
+  }
+}
 
 export default async function Overview() {
-  const [user, gateway] = await Promise.all([currentUser(), getGatewayStatus()]);
+  const [user, { runs, reachable }] = await Promise.all([currentUser(), loadRuns()]);
+  const configured = isGatewayConfigured();
 
   return (
     <main className="mx-auto w-full max-w-4xl space-y-10">
@@ -59,65 +42,62 @@ export default async function Overview() {
           {greeting()}
           {user?.firstName ? `, ${user.firstName}` : ""}
         </h1>
-        <p className="text-ink-muted">Your research workspace is ready.</p>
+        <p className="text-ink-muted">
+          Ask a question and watch the mesh gather, verify, and cite.
+        </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            className="rounded-lg border border-line bg-surface px-5 py-4"
-          >
-            <p className="font-mono text-2xl">{s.value}</p>
-            <p className="mt-1 text-sm text-ink-muted">{s.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <section className="flex flex-col items-center gap-5 rounded-lg border border-dashed border-line px-6 py-16 text-center">
-        <Logo className="h-10 w-10 text-ink-muted/50" />
-        <div className="space-y-2">
-          <h2 className="text-lg font-medium">No research runs yet</h2>
-          <p className="mx-auto max-w-sm text-sm leading-6 text-ink-muted">
-            When you start a run, independent agents will gather sources,
-            cross-check each other&apos;s claims, and converge on a report you
-            can audit line by line.
-          </p>
-        </div>
-        <button
-          disabled
-          className="cursor-not-allowed rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent opacity-45"
-        >
-          New research run
-        </button>
-        <p className="font-mono text-xs text-ink-muted">
-          agent runtime ships in milestone 2
-        </p>
+      <section className="rounded-lg border border-line bg-surface p-5">
+        <NewRunForm disabled={!configured} />
       </section>
 
-      <footer className="flex items-center gap-2 font-mono text-xs text-ink-muted">
-        <span
-          className={`h-1.5 w-1.5 rounded-full ${
-            gateway.state === "ok"
-              ? "bg-confidence-high"
-              : gateway.state === "unconfigured"
-                ? "bg-line"
-                : "bg-confidence-mid"
-          }`}
-        />
-        {gateway.state === "ok" && (
-          <span>gateway session verified · {gateway.userId}</span>
+      {!configured && (
+        <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-ink-muted">
+          The research gateway isn&apos;t configured in this environment, so new
+          runs are disabled here. Run the gateway and mesh locally to try the
+          full flow — see the project README.
+        </p>
+      )}
+      {configured && !reachable && (
+        <p className="rounded-md border border-dashed border-confidence-mid/40 px-4 py-3 text-sm text-confidence-mid">
+          The research gateway is unreachable right now. Your existing runs will
+          reappear once it&apos;s back.
+        </p>
+      )}
+
+      <section className="space-y-4">
+        <h2 className="font-mono text-xs uppercase tracking-widest text-ink-muted">
+          Research runs
+        </h2>
+        {runs.length === 0 ? (
+          <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-line px-6 py-14 text-center">
+            <Logo className="h-9 w-9 text-ink-muted/40" />
+            <p className="max-w-sm text-sm leading-6 text-ink-muted">
+              No runs yet. Your research history will appear here — each with its
+              claims, confidence, and sources.
+            </p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line">
+            {runs.map((run) => (
+              <li key={run.id}>
+                <Link
+                  href={`/dashboard/runs/${run.id}`}
+                  className="flex items-center justify-between gap-4 bg-surface px-5 py-4 transition-colors hover:bg-line/30"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <p className="truncate text-sm font-medium">{run.question}</p>
+                    <p className="font-mono text-xs text-ink-muted">
+                      {run.claimCount} claims · {run.sourceCount} sources
+                    </p>
+                  </div>
+                  <StatusPill status={run.status} />
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
-        {gateway.state === "unconfigured" && (
-          <span>gateway not configured — web-only mode</span>
-        )}
-        {gateway.state === "offline" && (
-          <span>gateway unreachable — start services/gateway locally</span>
-        )}
-        {gateway.state === "error" && (
-          <span>gateway rejected the session (HTTP {gateway.code})</span>
-        )}
-      </footer>
+      </section>
     </main>
   );
 }

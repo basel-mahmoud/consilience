@@ -21,5 +21,12 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
-  # pip (/services/mesh) and gradle (/services/engine) entries are added
-  # when each service gains a manifest.
+  - package-ecosystem: uv
+    directory: /services/mesh
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # gradle (/services/engine) entry is added when the service gains a manifest.

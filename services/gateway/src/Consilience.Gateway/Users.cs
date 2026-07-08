@@ -4,23 +4,16 @@ namespace Consilience.Gateway;
 
 public interface IUserStore
 {
-    /// <summary>Records a Clerk user on first sight and bumps last_seen_at after.</summary>
-    Task UpsertAsync(string clerkUserId, string? email, CancellationToken ct);
+    /// <summary>
+    /// Records a Clerk user on first sight, bumps last_seen_at after,
+    /// and returns the internal users.id used to scope all owned resources.
+    /// </summary>
+    Task<Guid> UpsertAsync(string clerkUserId, string? email, CancellationToken ct);
 }
 
-public sealed class PostgresUserStore : IUserStore, IAsyncDisposable
+public sealed class PostgresUserStore(NpgsqlDataSource dataSource) : IUserStore
 {
-    private readonly NpgsqlDataSource _dataSource;
-
-    public PostgresUserStore(IConfiguration configuration)
-    {
-        var url =
-            configuration["DATABASE_URL"]
-            ?? throw new InvalidOperationException("DATABASE_URL is not set.");
-        _dataSource = NpgsqlDataSource.Create(PostgresUrl.ToConnectionString(url));
-    }
-
-    public async Task UpsertAsync(string clerkUserId, string? email, CancellationToken ct)
+    public async Task<Guid> UpsertAsync(string clerkUserId, string? email, CancellationToken ct)
     {
         const string sql = """
             INSERT INTO users (clerk_user_id, email)
@@ -28,14 +21,13 @@ public sealed class PostgresUserStore : IUserStore, IAsyncDisposable
             ON CONFLICT (clerk_user_id) DO UPDATE
             SET email = COALESCE(EXCLUDED.email, users.email),
                 last_seen_at = now()
+            RETURNING id
             """;
-        await using var command = _dataSource.CreateCommand(sql);
+        await using var command = dataSource.CreateCommand(sql);
         command.Parameters.AddWithValue(clerkUserId);
         command.Parameters.AddWithValue((object?)email ?? DBNull.Value);
-        await command.ExecuteNonQueryAsync(ct);
+        return (Guid)(await command.ExecuteScalarAsync(ct))!;
     }
-
-    public ValueTask DisposeAsync() => _dataSource.DisposeAsync();
 }
 
 public static class PostgresUrl

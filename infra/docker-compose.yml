@@ -1,0 +1,17 @@
+# Local development infrastructure for Consilience.
+# Postgres is Neon-hosted (even in dev), so only the broker lives here for now.
+# The gateway and mesh run on the host during development; containerizing them
+# lands with backend deployment in a later milestone.
+
+services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: consilience-rabbitmq
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # management UI (guest/guest)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
