@@ -12,6 +12,7 @@ import { RunAutoRefresh } from "@/components/run-auto-refresh";
 import { EvaluationPanel } from "@/components/evaluation-panel";
 import { ApprovalGate } from "@/components/approval-gate";
 import { LiveTrace } from "@/components/live-trace";
+import { ExportReport } from "@/components/export-report";
 
 export const metadata: Metadata = {
   title: "Run",
@@ -129,6 +130,10 @@ export default async function RunPage({
               ))}
             </section>
           )}
+
+          <div className="flex justify-end">
+            <ExportReport run={run} />
+          </div>
 
           {run.summary && (
             <section className="space-y-2">

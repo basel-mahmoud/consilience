@@ -2,6 +2,22 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [0.9.0] — 2026-07-09 · Milestone 5b: Report export with citations
+
+**Shipped**
+
+- **Export report** button on completed runs: downloads a self-contained, fully-cited Markdown report built from the run's data — title, an AI-generated-content disclaimer, synthesis, evaluation scores, numbered claims (with per-claim confidence, contributing agent, and citation references), cross-agent contradictions, and a numbered source list with credibility
+- The report builder (`lib/report.ts`) is a pure, deterministic function; the export happens entirely client-side (a Blob download), so it needs no backend round-trip and works from any completed run already on screen
+- Source-derived filename slug (e.g. `consilience-is-nuclear-power-cost-effective.md`)
+
+**Verified**
+
+- Ran the real report builder against a representative completed run and confirmed correct structure and citations end to end (claims cite `[1][2]`, contradictions reference claim positions, sources numbered with credibility, disclaimer present)
+
+**Next**
+
+- Milestone 6: security hardening pass — full audit against the access-control, input-validation, rate-limiting, secrets, and observability checklist
+
 ## [0.8.0] — 2026-07-09 · Milestone 5a: Real-time agent-trace streaming
 
 **Shipped**
