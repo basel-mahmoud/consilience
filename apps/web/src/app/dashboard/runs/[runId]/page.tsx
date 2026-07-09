@@ -98,8 +98,14 @@ export default async function RunPage({
       )}
 
       {inProgress && (
-        <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-5 py-6">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-accent" />
+        <div
+          role="status"
+          className="flex items-center gap-3 rounded-lg border border-line bg-surface px-5 py-6"
+        >
+          <span
+            aria-hidden="true"
+            className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-accent"
+          />
           <p className="text-sm text-ink-muted">
             {run.status === "queued"
               ? "Queued — an agent will pick this up shortly."

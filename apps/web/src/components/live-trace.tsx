@@ -102,7 +102,11 @@ export function LiveTrace({ runId, live }: { runId: string; live: boolean }) {
           </span>
         )}
       </div>
-      <ol className="relative space-y-3 border-l border-line pl-5">
+      <ol
+        aria-live="polite"
+        aria-label="Agent activity"
+        className="relative space-y-3 border-l border-line pl-5"
+      >
         {events.map((e) => (
           <li key={e.seq} className="trace-row relative">
             <span

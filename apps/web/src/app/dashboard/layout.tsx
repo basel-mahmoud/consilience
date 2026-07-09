@@ -52,7 +52,9 @@ export default function DashboardLayout({
           <ThemeToggle />
           <UserButton />
         </header>
-        <div className="flex-1 px-6 py-8 sm:px-10">{children}</div>
+        <div id="main" tabIndex={-1} className="flex-1 px-6 py-8 outline-none sm:px-10">
+          {children}
+        </div>
       </div>
     </div>
   );

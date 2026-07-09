@@ -10,6 +10,13 @@
   flag contradictions, and produce a report with per-claim confidence and full attribution.
 </p>
 
+<p align="center">
+  <a href="https://consilience-one.vercel.app">Live</a> ·
+  <a href="CHANGELOG.md">Changelog</a> ·
+  <a href="LAUNCH_READINESS.md">Launch readiness</a> ·
+  <a href="docs/demo-script.md">Demo script</a>
+</p>
+
 ---
 
 ## What it does
@@ -66,7 +73,7 @@ Services communicate through documented contracts in [`packages/contracts`](pack
 | 6 | Security hardening audit | ✅ Shipped |
 | 7 | Full testing pass (unit/integration/e2e/load) | ✅ Shipped |
 | 8 | Legal & compliance (privacy, ToS, data handling, deletion flow) | ✅ Shipped |
-| 9 | Accessibility, performance, launch readiness | ⏳ Next |
+| 9 | Accessibility, performance, launch readiness | ✅ Shipped |
 
 See [CHANGELOG.md](CHANGELOG.md) for per-milestone detail.
 
@@ -105,4 +112,5 @@ With all services running, a research question submitted in the dashboard is pub
 - [Disaster recovery & rollback](docs/disaster-recovery.md)
 - [Data handling & compliance](DATA_HANDLING.md) · [Trademark check](docs/legal/trademark-check.md)
 - [Testing strategy](tests/README.md)
+- [Launch readiness](LAUNCH_READINESS.md) · [Demo script](docs/demo-script.md)
 - [Design system](apps/web/README.md) — tokens, type, color; live at `/styleguide`

@@ -2,6 +2,18 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [1.0.0] — 2026-07-09 · Milestone 9: Final polish & launch readiness
+
+**Shipped**
+
+- **Accessibility pass:** a skip-to-content link, a global `:focus-visible` ring, `role="status"` on loading states (with decorative spinners `aria-hidden`), an `aria-live="polite"` region on the live agent trace so new events are announced, `role="alert"` on errors, and landmark `#main` targets across landing, dashboard, and legal pages. All motion already respects `prefers-reduced-motion`; the confidence scale always pairs color with a text label.
+- **Performance review:** self-hosted optimized fonts (`next/font`, no layout shift), the SignalR client code-split into the trace component only, static prerendering for all non-dynamic routes, indexed hot query paths, and a 64 KB request cap.
+- [`LAUNCH_READINESS.md`](LAUNCH_READINESS.md): a status-by-area review with the accessibility and performance audit results and an honest list of what a real commercial launch still needs (host the backend services, prod broker/DB/Clerk, a paid LLM key, live trademark clearance, alerting).
+- [`docs/demo-script.md`](docs/demo-script.md): a ~3-minute demo walkthrough.
+- README polished with a live/changelog/readiness/demo header and a complete documentation index.
+
+**Milestone 0–9 complete.** Every milestone shipped, CI green across four languages, security and compliance addressed, and the full research pipeline verified end to end. Tagged **1.0.0**.
+
 ## [0.12.0] — 2026-07-09 · Milestone 8: Legal & compliance
 
 **Shipped**

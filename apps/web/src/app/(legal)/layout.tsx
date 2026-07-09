@@ -8,7 +8,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         <Logo className="h-6 w-6 text-accent" />
         <span className="font-display text-lg tracking-tight">Consilience</span>
       </Link>
-      <article className="prose-consilience space-y-6">{children}</article>
+      <article id="main" className="prose-consilience space-y-6">{children}</article>
     </div>
   );
 }

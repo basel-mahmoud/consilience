@@ -5,7 +5,7 @@ import { Logo } from "@/components/logo";
 export default async function Home() {
   const { userId } = await auth();
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-10 px-6 text-center">
+    <main id="main" className="flex flex-1 flex-col items-center justify-center gap-10 px-6 text-center">
       <Logo className="h-11 w-11 text-accent" />
       <div className="space-y-4">
         <h1 className="font-display text-5xl tracking-tight text-balance sm:text-6xl">
