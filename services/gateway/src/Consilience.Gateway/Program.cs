@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Consilience.Gateway;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 
@@ -8,6 +10,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole();
+
+// Cap request bodies — the API only accepts small JSON payloads
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 64 * 1024);
+builder.Services.AddProblemDetails();
 
 var clerkAuthority =
     builder.Configuration["Clerk:Authority"]
@@ -59,6 +65,23 @@ builder.Services.AddCors(options =>
 builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
 
+// Per-caller request rate limit (identity when authenticated, else remote IP)
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var key = context.User.FindFirstValue("sub")
+            ?? context.Connection.RemoteIpAddress?.ToString()
+            ?? "anonymous";
+        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 120,
+            Window = TimeSpan.FromMinutes(1),
+        });
+    });
+});
+
 builder.Services.AddSingleton(_ =>
     NpgsqlDataSource.Create(PostgresUrl.ToConnectionString(
         builder.Configuration["DATABASE_URL"]
@@ -71,8 +94,16 @@ builder.Services.AddHostedService<TraceRelay>();
 
 var app = builder.Build();
 
+// Generic problem-details errors in production (never leak stack traces);
+// the developer exception page stays on only in Development.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler();
+}
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseCors();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapOpenApi();
 app.MapHub<TraceHub>("/hubs/trace");

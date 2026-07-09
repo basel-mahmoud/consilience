@@ -63,8 +63,8 @@ Services communicate through documented contracts in [`packages/contracts`](pack
 | 4b | Human-in-the-loop approval gate + rules engine | ✅ Shipped |
 | 5a | Real-time agent-trace streaming (mesh → SignalR → live dashboard) | ✅ Shipped |
 | 5b | Report export with citations | ✅ Shipped |
-| 6 | Security hardening audit | ⏳ Next |
-| 7 | Full testing pass (unit/integration/e2e/load) | Planned |
+| 6 | Security hardening audit | ✅ Shipped |
+| 7 | Full testing pass (unit/integration/e2e/load) | ⏳ Next |
 | 8 | Legal & compliance (privacy, ToS, data handling) | Planned |
 | 9 | Accessibility, performance, launch readiness | Planned |
 
@@ -101,4 +101,6 @@ With all services running, a research question submitted in the dashboard is pub
 
 - [System architecture](docs/architecture/system-overview.md)
 - [Architecture Decision Records](docs/adr)
+- [Security posture & audit](SECURITY.md)
+- [Disaster recovery & rollback](docs/disaster-recovery.md)
 - [Design system](apps/web/README.md) — tokens, type, color; live at `/styleguide`

@@ -2,6 +2,26 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [0.10.0] — 2026-07-09 · Milestone 6: Security hardening
+
+**Shipped**
+
+- Gateway response hardening: security headers on every response (`X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, framing-deny CSP), production problem-details errors (no stack-trace leakage), and a 64 KB request-body cap
+- **Per-caller request rate limiting** (fixed window, partitioned by Clerk `sub` or remote IP, `429` on exceed) — complementing the existing per-user concurrency cap (gateway) and hourly throughput cap (engine)
+- **CodeQL** static analysis across all four languages (TypeScript, Python, C#, Java) on every push/PR and weekly
+- [`SECURITY.md`](SECURITY.md): the full checklist audit — ownership scoping, parameterized queries, prompt-injection defense, secrets hygiene, rate limiting, transport, observability, supply chain — mapped to where each control lives
+- [`docs/disaster-recovery.md`](docs/disaster-recovery.md): RTO (≤1h) / RPO (≤24h) targets, per-component recovery steps, and a forward-only-migration rollback plan
+- Gateway tests → 23 (security headers present, rate-limit 429)
+
+**Audit findings**
+
+- Data isolation, parameterized SQL, injection-safe prompts, structured logging, retry/backoff, and idempotency were already built in across Milestones 1–5; this pass verified and documented them rather than retrofitting
+- Reviewed index coverage against every query pattern — all frequently-filtered columns (`user_id`, `run_id`, `(run_id, seq)`, `clerk_user_id`) are already indexed; no gaps found
+
+**Next**
+
+- Milestone 7: full testing pass — integration tests across service boundaries, an end-to-end critical-flow test, and load testing on the agent-orchestration path
+
 ## [0.9.0] — 2026-07-09 · Milestone 5b: Report export with citations
 
 **Shipped**
