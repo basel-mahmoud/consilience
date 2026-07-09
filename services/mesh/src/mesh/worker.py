@@ -21,7 +21,9 @@ log = logging.getLogger(__name__)
 EXCHANGE = "consilience"
 DLX = "consilience.dlx"
 QUEUE = "mesh.run-requests"
-ROUTING_KEY = "run.requested"
+# The engine (M4) sits in front of the mesh: it consumes run.requested from the
+# gateway, applies rate limiting and approval policy, then dispatches here.
+ROUTING_KEY = "agent.dispatch"
 
 
 class InvalidMessage(Exception):

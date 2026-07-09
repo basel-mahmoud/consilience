@@ -52,5 +52,16 @@ jobs:
       - run: uv run ruff check
       - run: uv run pytest -q
 
-  # Engine (Java) job is added in the milestone that introduces the service —
-  # every service ships with CI.
+  engine:
+    name: Engine — build & tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: ./gradlew build --no-daemon

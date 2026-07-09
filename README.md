@@ -59,7 +59,8 @@ Services communicate through documented contracts in [`packages/contracts`](pack
 | 2 | Single-agent research flow (Python mesh + RabbitMQ), sources & citations | ✅ Shipped |
 | 3a | Parallel multi-agent mesh, source credibility ranking, per-agent attribution | ✅ Shipped |
 | 3b | Contradiction detection across agents, evaluation scoring harness | ✅ Shipped |
-| 4 | Workflow engine: queue, retries, rate limits, approval gates | ⏳ Next |
+| 4a | Java engine: queue consumer, per-user rate limiting, dispatch with retries | ✅ Shipped |
+| 4b | Human-in-the-loop approval gate + rules engine | ⏳ Next |
 | 5 | Real-time trace UI, report export | Planned |
 | 6 | Security hardening audit | Planned |
 | 7 | Full testing pass (unit/integration/e2e/load) | Planned |
@@ -84,12 +85,16 @@ docker compose -f infra/docker-compose.yml up -d
 cd services/gateway/src/Consilience.Gateway
 DATABASE_URL="postgresql://…" RABBITMQ_URL="amqp://guest:guest@localhost:5672" dotnet run
 
+# Engine (requires JDK 21) — rate-limits and dispatches runs to the mesh
+cd services/engine
+./gradlew run
+
 # Mesh worker (requires uv + a GEMINI_API_KEY)
 cd services/mesh
 uv run python -m mesh.worker
 ```
 
-With all three running, a research question submitted in the dashboard is dispatched by the gateway over RabbitMQ, researched by the mesh, and streamed back into the run view (polling in M2; live WebSocket trace in M5). Without the gateway, the app runs in web-only mode. The `engine` service comes online in Milestone 4. All environment variables are documented in [`.env.example`](.env.example); no secrets are ever committed.
+With all services running, a research question submitted in the dashboard is published by the gateway, gated by the engine (per-user rate limiting; approval gate in M4b), dispatched to the mesh for research, and streamed back into the run view (polling in M2; live WebSocket trace in M5). Without the gateway, the app runs in web-only mode. All environment variables are documented in [`.env.example`](.env.example); no secrets are ever committed.
 
 ## Documentation
 

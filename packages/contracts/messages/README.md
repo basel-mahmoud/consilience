@@ -4,7 +4,11 @@ Exchange: **`consilience`** (topic, durable). Dead letters go to **`consilience.
 
 | Routing key | Schema | Producer → Consumer | Queue |
 |---|---|---|---|
-| `run.requested` | [research-run-requested.v1](research-run-requested.v1.json) | gateway → mesh | `mesh.run-requests` |
+| `run.requested` | [research-run-requested.v1](research-run-requested.v1.json) | gateway → engine | `engine.run-requests` |
+| `agent.dispatch` | [research-run-requested.v1](research-run-requested.v1.json) | engine → mesh | `mesh.run-requests` |
+
+The engine relays the same payload on `agent.dispatch` after its rate-limit and approval-gate
+checks pass — the mesh only ever researches runs the engine has cleared.
 
 Rules:
 

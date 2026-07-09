@@ -2,6 +2,30 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [0.6.0] — 2026-07-09 · Milestone 4a: Workflow engine (rate limiting + dispatch)
+
+**Shipped**
+
+- New Java service (`services/engine`, JDK 21 + Gradle) inserted in front of the mesh: the gateway now publishes `run.requested` to the **engine**, which applies policy and relays cleared runs to the mesh on `agent.dispatch` (the mesh rebinds from `run.requested`)
+- **Per-user rate limiting**: a sliding one-hour window (default 10 runs/user/hour, `ENGINE_MAX_RUNS_PER_HOUR`); runs over the cap are marked `rate_limited` with the reason recorded, never dispatched — a guard against runaway LLM cost
+- **Retry with exponential backoff** on dispatch (publisher confirms); a dispatch that ultimately fails marks the run `failed` and dead-letters the message; invalid messages are dead-lettered, never dropped
+- `rate_limited` added to the run status set (Neon MCP migration); the two-key broker topology (`run.requested` → engine, `agent.dispatch` → mesh) is documented in `packages/contracts`
+- Tests: 8 engine unit tests (retry success/exhaustion/backoff-doubling, run processor dispatch/at-limit/over-limit/failure) with fakes — no broker or DB; CI gains a Java (Gradle + spotless) job; Dependabot covers gradle
+
+**Verified**
+
+- Rate-limit path live: a run under a limit of 1 (with prior runs in the window) was correctly marked `rate_limited` and never dispatched
+- Full pipeline live end-to-end: gateway → engine (dispatched) → mesh → `completed` (3 agents, 26 claims, evaluations scored) in 29s
+
+**Architecture notes**
+
+- The engine and gateway apply complementary limits: the gateway caps concurrent active runs (3, immediate 429 feedback), the engine caps throughput per hour (cost control)
+- Two live-test stalls this session traced to orphaned child processes surviving a wrapper-only kill; resolved by killing the actual JVM/python PIDs and verifying they exit
+
+**Next**
+
+- Milestone 4b: the human-in-the-loop approval gate and its rules engine — flag sensitive runs for approval before dispatch, with approve/reject from the dashboard
+
 ## [0.5.0] — 2026-07-09 · Milestone 3b: Contradiction detection + evaluation
 
 **Shipped**

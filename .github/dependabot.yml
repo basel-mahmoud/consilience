@@ -29,4 +29,10 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
-  # gradle (/services/engine) entry is added when the service gains a manifest.
+  - package-ecosystem: gradle
+    directory: /services/engine
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
