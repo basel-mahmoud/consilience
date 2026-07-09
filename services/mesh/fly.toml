@@ -1,0 +1,11 @@
+# Fly.io deploy config for the mesh worker (no public ingress).
+app = "consilience-mesh"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# A broker worker: no [http_service]. The machine runs the consumer continuously.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

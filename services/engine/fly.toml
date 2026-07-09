@@ -1,0 +1,11 @@
+# Fly.io deploy config for the engine worker (no public ingress).
+app = "consilience-engine"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# A broker worker: no [http_service]. JVM gets a little more headroom.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
