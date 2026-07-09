@@ -54,7 +54,7 @@ class FakeMesh:
         self.error = error
         self.calls = 0
 
-    async def run(self, question):
+    async def run(self, question, tracer=None):
         self.calls += 1
         if self.error:
             raise self.error

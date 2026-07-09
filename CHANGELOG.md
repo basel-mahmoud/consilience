@@ -2,6 +2,25 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [0.8.0] — 2026-07-09 · Milestone 5a: Real-time agent-trace streaming
+
+**Shipped**
+
+- The mesh now **narrates each run** as it happens: trace events (`run.started`, `agent.started/completed` per lens, `synthesis`, `contradictions`, `run.completed/failed`) published to `trace.event` with a monotonic per-run sequence; emission is best-effort and never fails the research
+- Gateway `TraceRelay` (hosted service) consumes `trace.event`, persists each to a new `trace_events` table (idempotent on `(run_id, seq)`; doubles as the agent-activity audit trail), and fans it out over **SignalR** (`/hubs/trace`) to the run's owner
+- SignalR auth reuses Clerk (token via `?access_token=` since WebSockets can't set headers); the hub verifies run ownership before a client joins the run's group; `GET /api/runs/{id}/trace` replays recorded events so a browser connecting mid-run still gets the whole story
+- Dashboard **live trace timeline**: connects to the hub, renders events as they arrive with a subtle motion-in (respecting `prefers-reduced-motion`), and shows the recorded trace on completed/failed runs
+- Tests: mesh grows to 40 (trace emission on success and failure); gateway stays at 21 with the SignalR layer wired in (the trace relay is excluded from the test host, which has no broker)
+
+**Verified**
+
+- Trace path live end to end: seven synthetic trace events published to the broker were consumed by the running gateway relay and persisted to `trace_events` in correct sequence order, confirming mesh → broker → gateway → database
+- Not verifiable this session (environment, not code): the SignalR push to a browser and the visual timeline — the preview sandbox couldn't reach the local dev server, and Gemini's exhausted daily quota blocked a fresh live agent run. The relay-to-hub fan-out and the hub's ownership check reuse the same verified auth path as the tested REST endpoints.
+
+**Next**
+
+- Milestone 5b: report export with citations
+
 ## [0.7.0] — 2026-07-09 · Milestone 4b: Human-in-the-loop approval gate
 
 **Shipped**

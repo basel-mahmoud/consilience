@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from typing import Protocol
 from uuid import UUID
 
@@ -15,6 +16,9 @@ from mesh.orchestrator import Orchestrator
 from mesh.repo import RunRepository
 from mesh.researcher import Researcher
 from mesh.schemas import MeshResult, RunRequested
+from mesh.trace import NullTracer, RabbitTracer, Tracer
+
+TracerFactory = Callable[[UUID, UUID], Tracer]
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +44,9 @@ class Mesh(Protocol):
     async def run(self, question: str) -> MeshResult: ...
 
 
-async def handle_message(body: bytes, repo: RunStore, mesh: Mesh) -> None:
+async def handle_message(
+    body: bytes, repo: RunStore, mesh: Mesh, make_tracer: "TracerFactory | None" = None
+) -> None:
     try:
         message = RunRequested.model_validate(json.loads(body))
     except (ValidationError, ValueError) as exc:
@@ -52,15 +58,24 @@ async def handle_message(body: bytes, repo: RunStore, mesh: Mesh) -> None:
         log.warning("run %s not claimable, skipping", message.run_id)
         return
 
+    tracer = make_tracer(message.run_id, message.user_id) if make_tracer else NullTracer()
     log.info("run %s started: %.60s…", message.run_id, message.question)
+    await tracer.emit("run.started", "Dispatching research agents")
     try:
-        result = await mesh.run(message.question)
+        result = await mesh.run(message.question, tracer)
         await repo.save_mesh_result(message.run_id, message.user_id, result)
     except Exception as exc:
         await repo.mark_failed(message.run_id, message.user_id, str(exc))
+        await tracer.emit("run.failed", "The run failed before completing")
         raise
     total_claims = sum(len(a.result.claims) for a in result.agents)
     total_sources = sum(len(a.result.sources) for a in result.agents)
+    await tracer.emit(
+        "run.completed",
+        f"Report ready: {total_claims} claims from {len(result.agents)} agents",
+        {"claims": total_claims, "sources": total_sources,
+         "contradictions": len(result.contradictions)},
+    )
     log.info(
         "run %s completed: %d agents, %d claims, %d sources, %d contradictions",
         message.run_id, len(result.agents), total_claims, total_sources,
@@ -78,7 +93,9 @@ async def consume(config: Config) -> None:
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=2)
 
-        await channel.declare_exchange(EXCHANGE, aio_pika.ExchangeType.TOPIC, durable=True)
+        exchange = await channel.declare_exchange(
+            EXCHANGE, aio_pika.ExchangeType.TOPIC, durable=True
+        )
         dlx = await channel.declare_exchange(DLX, aio_pika.ExchangeType.TOPIC, durable=True)
         dlq = await channel.declare_queue(f"{QUEUE}.dlq", durable=True)
         await dlq.bind(dlx, routing_key="#")
@@ -87,13 +104,16 @@ async def consume(config: Config) -> None:
         )
         await queue.bind(EXCHANGE, routing_key=ROUTING_KEY)
 
+        def make_tracer(run_id: UUID, user_id: UUID) -> Tracer:
+            return RabbitTracer(exchange, run_id, user_id)
+
         log.info("mesh worker consuming %s (search=%s, synthesis=%s)",
                  QUEUE, config.search_model, config.synthesis_model)
 
         async with queue.iterator() as messages:
             async for message in messages:
                 try:
-                    await handle_message(message.body, repo, mesh)
+                    await handle_message(message.body, repo, mesh, make_tracer)
                     await message.ack()
                 except InvalidMessage:
                     log.exception("invalid message — dead-lettering")

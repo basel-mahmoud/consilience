@@ -61,7 +61,8 @@ Services communicate through documented contracts in [`packages/contracts`](pack
 | 3b | Contradiction detection across agents, evaluation scoring harness | ✅ Shipped |
 | 4a | Java engine: queue consumer, per-user rate limiting, dispatch with retries | ✅ Shipped |
 | 4b | Human-in-the-loop approval gate + rules engine | ✅ Shipped |
-| 5 | Real-time trace UI, report export | ⏳ Next |
+| 5a | Real-time agent-trace streaming (mesh → SignalR → live dashboard) | ✅ Shipped |
+| 5b | Report export with citations | ⏳ Next |
 | 6 | Security hardening audit | Planned |
 | 7 | Full testing pass (unit/integration/e2e/load) | Planned |
 | 8 | Legal & compliance (privacy, ToS, data handling) | Planned |

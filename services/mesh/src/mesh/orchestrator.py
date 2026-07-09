@@ -21,6 +21,7 @@ from mesh.schemas import (
     MeshResult,
     ResearchResult,
 )
+from mesh.trace import NullTracer, Tracer
 
 log = logging.getLogger(__name__)
 
@@ -54,9 +55,10 @@ class Orchestrator:
         self._finder = finder
         self._lenses = lenses or default_lenses()
 
-    async def run(self, question: str) -> MeshResult:
+    async def run(self, question: str, tracer: Tracer | None = None) -> MeshResult:
+        tracer = tracer or NullTracer()
         results = await asyncio.gather(
-            *(self._agent.research(question, lens.guidance) for lens in self._lenses),
+            *(self._run_agent(question, lens, tracer) for lens in self._lenses),
             return_exceptions=True,
         )
 
@@ -73,9 +75,16 @@ class Orchestrator:
             raise RuntimeError("all research agents failed")
 
         summary = await self._summarize(question, agents)
+        await tracer.emit("synthesis", "Synthesized findings across agents")
+
         contradictions = await self._find_contradictions(question, agents)
         if contradictions:
             agents = _downgrade_contradicted(agents, contradictions)
+        await tracer.emit(
+            "contradictions",
+            f"Found {len(contradictions)} contradiction(s) across agents",
+            {"count": len(contradictions)},
+        )
         evaluations = evaluate(agents, contradictions)
 
         log.info(
@@ -88,6 +97,18 @@ class Orchestrator:
             contradictions=contradictions,
             evaluations=evaluations,
         )
+
+    async def _run_agent(self, question: str, lens: Lens, tracer: Tracer) -> ResearchResult:
+        await tracer.emit(
+            "agent.started", f"{lens.label} agent researching", {"lens": lens.key}
+        )
+        result = await self._agent.research(question, lens.guidance)
+        await tracer.emit(
+            "agent.completed",
+            f"{lens.label}: {len(result.claims)} claims, {len(result.sources)} sources",
+            {"lens": lens.key, "claims": len(result.claims), "sources": len(result.sources)},
+        )
+        return result
 
     async def _summarize(self, question: str, agents: list[AgentResult]) -> str:
         findings = [(a.lens_label, a.result.summary) for a in agents]

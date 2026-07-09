@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/basel-mahmoud/consilience/packages/contracts/messages/trace-event.v1.json",
+  "title": "TraceEvent",
+  "description": "Emitted by the mesh as a run progresses. The gateway consumes these on `trace.event`, persists them, and streams them to the owner's browser over SignalR for the live trace view.",
+  "type": "object",
+  "required": ["runId", "userId", "seq", "type", "message", "at"],
+  "additionalProperties": false,
+  "properties": {
+    "runId": { "type": "string", "format": "uuid" },
+    "userId": { "type": "string", "format": "uuid" },
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic per-run sequence for stable ordering and dedupe"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "run.started",
+        "agent.started",
+        "agent.completed",
+        "synthesis",
+        "contradictions",
+        "run.completed",
+        "run.failed"
+      ]
+    },
+    "message": { "type": "string", "maxLength": 500 },
+    "data": { "type": "object" },
+    "at": { "type": "string", "format": "date-time" }
+  }
+}

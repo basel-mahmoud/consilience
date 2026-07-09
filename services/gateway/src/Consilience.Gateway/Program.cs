@@ -37,14 +37,27 @@ builder.Services
                     context.Fail("Token authorized party is not an allowed origin.");
                 return Task.CompletedTask;
             },
+            // WebSocket clients can't set an Authorization header — SignalR passes
+            // the Clerk token as ?access_token= on the hub path instead.
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
         };
     });
 
 builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
-        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 builder.Services.AddOpenApi();
+builder.Services.AddSignalR();
 
 builder.Services.AddSingleton(_ =>
     NpgsqlDataSource.Create(PostgresUrl.ToConnectionString(
@@ -53,6 +66,8 @@ builder.Services.AddSingleton(_ =>
 builder.Services.AddSingleton<IUserStore, PostgresUserStore>();
 builder.Services.AddSingleton<IRunStore, PostgresRunStore>();
 builder.Services.AddSingleton<IRunPublisher, RabbitMqRunPublisher>();
+builder.Services.AddScoped<ITraceStore, PostgresTraceStore>();
+builder.Services.AddHostedService<TraceRelay>();
 
 var app = builder.Build();
 
@@ -60,6 +75,7 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapOpenApi();
+app.MapHub<TraceHub>("/hubs/trace");
 
 const int MaxActiveRuns = 3;
 
@@ -158,6 +174,25 @@ app.MapGet(
                 clerkUserId, principal.FindFirstValue("email"), ct);
             var run = await runs.GetAsync(userId, runId, ct);
             return run is null ? Results.NotFound() : Results.Ok(run);
+        })
+    .RequireAuthorization();
+
+app.MapGet(
+        "/api/runs/{runId:guid}/trace",
+        async (
+            Guid runId,
+            ClaimsPrincipal principal,
+            IUserStore users,
+            IRunStore runs,
+            ITraceStore traces,
+            CancellationToken ct) =>
+        {
+            var clerkUserId = principal.FindFirstValue("sub");
+            if (clerkUserId is null) return Results.Unauthorized();
+            var userId = await users.UpsertAsync(clerkUserId, principal.FindFirstValue("email"), ct);
+            // Ownership is enforced by scoping the trace query to the user id
+            if (await runs.GetAsync(userId, runId, ct) is null) return Results.NotFound();
+            return Results.Ok(await traces.ListAsync(userId, runId, ct));
         })
     .RequireAuthorization();
 

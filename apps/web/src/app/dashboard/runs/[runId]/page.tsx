@@ -11,6 +11,7 @@ import {
 import { RunAutoRefresh } from "@/components/run-auto-refresh";
 import { EvaluationPanel } from "@/components/evaluation-panel";
 import { ApprovalGate } from "@/components/approval-gate";
+import { LiveTrace } from "@/components/live-trace";
 
 export const metadata: Metadata = {
   title: "Run",
@@ -96,14 +97,18 @@ export default async function RunPage({
       )}
 
       {inProgress && (
-        <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-5 py-8">
+        <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-5 py-6">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-accent" />
           <p className="text-sm text-ink-muted">
             {run.status === "queued"
               ? "Queued — an agent will pick this up shortly."
-              : "An agent is gathering sources and extracting claims…"}
+              : "Agents are gathering sources and cross-checking claims…"}
           </p>
         </div>
+      )}
+
+      {(inProgress || run.status === "completed" || run.status === "failed") && (
+        <LiveTrace runId={run.id} live={inProgress} />
       )}
 
       {run.status === "completed" && (

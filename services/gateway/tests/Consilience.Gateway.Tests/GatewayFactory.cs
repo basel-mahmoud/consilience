@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Cryptography;
 using Consilience.Gateway;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Consilience.Gateway.Tests;
@@ -37,6 +39,10 @@ public sealed class GatewayFactory : WebApplicationFactory<Program>
             services.AddSingleton<IUserStore>(Users);
             services.AddSingleton<IRunStore>(Runs);
             services.AddSingleton<IRunPublisher>(Publisher);
+
+            // The trace relay needs a live broker; it isn't under test here
+            var relay = services.FirstOrDefault(d => d.ImplementationType == typeof(TraceRelay));
+            if (relay is not null) services.Remove(relay);
 
             services.PostConfigure<JwtBearerOptions>(
                 JwtBearerDefaults.AuthenticationScheme,
