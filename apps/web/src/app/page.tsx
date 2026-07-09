@@ -36,9 +36,14 @@ export default async function Home() {
           GitHub
         </a>
       </div>
-      <p className="fixed bottom-6 font-mono text-xs text-ink-muted">
-        milestone 3 · multi-agent mesh
-      </p>
+      <footer className="fixed bottom-6 flex items-center gap-4 font-mono text-xs text-ink-muted">
+        <Link href="/privacy" className="transition-colors hover:text-ink">
+          Privacy
+        </Link>
+        <Link href="/terms" className="transition-colors hover:text-ink">
+          Terms
+        </Link>
+      </footer>
     </main>
   );
 }

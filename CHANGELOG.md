@@ -2,6 +2,28 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [0.12.0] — 2026-07-09 · Milestone 8: Legal & compliance
+
+**Shipped**
+
+- **Account/data deletion flow (implemented, not just documented):** `DELETE /api/account` erases the `users` row; `ON DELETE CASCADE` on every child table removes all owned runs, claims, sources, contradictions, evaluations, agents, and trace events in one transaction. The client then calls Clerk's `user.delete()` to remove the auth identity. Reachable from **Settings → Delete account** with a confirm step.
+- **In-app legal pages** (public): a tailored [Privacy Policy](apps/web/src/app/(legal)/privacy/page.tsx) and [Terms of Service](apps/web/src/app/(legal)/terms/page.tsx) written to match what the product actually collects — the ToS foregrounds the AI-generated-output disclaimer. Linked from the landing footer and Settings.
+- [`DATA_HANDLING.md`](DATA_HANDLING.md): a complete data inventory (every point, its store, purpose, and retention), the data flows, sub-processors, and explicit GDPR/CCPA handling (access, portability, deletion, minimization).
+- [`docs/legal/trademark-check.md`](docs/legal/trademark-check.md): risk assessment for the name (moderate — a real word with existing software use), the exact USPTO clearance steps to complete before commercialization, and a safer coined-mark recommendation.
+- Gateway tests → 28 (account deletion: unauthenticated 401, erases the caller's data)
+
+**Verified**
+
+- Deletion cascade proven at the data layer: inserted a throwaway user with a run, agent, source, claim, and trace event; deleting the user via the gateway's exact statement left **zero** rows across all child tables.
+
+**Notes**
+
+- The live trademark web search could not run this session (search rate limit); the assessment is knowledge-based with the live-search steps documented for pre-launch.
+
+**Next**
+
+- Milestone 9: accessibility audit, performance pass, and launch-readiness review
+
 ## [0.11.0] — 2026-07-09 · Milestone 7: Testing pass
 
 **Shipped**

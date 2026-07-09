@@ -264,6 +264,25 @@ app.MapPost(
         })
     .RequireAuthorization();
 
+app.MapDelete(
+        "/api/account",
+        async (
+            ClaimsPrincipal principal,
+            IUserStore users,
+            ILogger<Program> logger,
+            CancellationToken ct) =>
+        {
+            var clerkUserId = principal.FindFirstValue("sub");
+            if (clerkUserId is null) return Results.Unauthorized();
+
+            var deleted = await users.DeleteByClerkIdAsync(clerkUserId, ct);
+            // Audit the erasure without logging the user id in plaintext
+            logger.LogInformation("account data deletion requested (existed: {Existed})", deleted);
+            // The caller deletes the Clerk identity separately (client-side user.delete()).
+            return Results.Ok(new { deleted });
+        })
+    .RequireAuthorization();
+
 app.MapPost(
         "/api/runs/{runId:guid}/reject",
         async (

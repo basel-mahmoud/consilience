@@ -4,9 +4,8 @@ import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const nav = [
-  { label: "Overview", href: "/dashboard", enabled: true },
-  { label: "Runs", href: null, enabled: false, hint: "M2" },
-  { label: "Reports", href: null, enabled: false, hint: "M5" },
+  { label: "Overview", href: "/dashboard", enabled: true, hint: "" },
+  { label: "Settings", href: "/dashboard/settings", enabled: true, hint: "" },
 ];
 
 export default function DashboardLayout({

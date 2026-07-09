@@ -66,6 +66,7 @@ public sealed class FakeUserStore : IUserStore
 {
     private readonly Dictionary<string, Guid> _ids = [];
     public List<(string ClerkUserId, string? Email)> Upserts { get; } = [];
+    public List<string> Deleted { get; } = [];
 
     public Task<Guid> UpsertAsync(string clerkUserId, string? email, CancellationToken ct)
     {
@@ -73,6 +74,12 @@ public sealed class FakeUserStore : IUserStore
         if (!_ids.TryGetValue(clerkUserId, out var id))
             _ids[clerkUserId] = id = Guid.NewGuid();
         return Task.FromResult(id);
+    }
+
+    public Task<bool> DeleteByClerkIdAsync(string clerkUserId, CancellationToken ct)
+    {
+        Deleted.Add(clerkUserId);
+        return Task.FromResult(_ids.Remove(clerkUserId));
     }
 }
 

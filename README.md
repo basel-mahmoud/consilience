@@ -65,8 +65,8 @@ Services communicate through documented contracts in [`packages/contracts`](pack
 | 5b | Report export with citations | ✅ Shipped |
 | 6 | Security hardening audit | ✅ Shipped |
 | 7 | Full testing pass (unit/integration/e2e/load) | ✅ Shipped |
-| 8 | Legal & compliance (privacy, ToS, data handling) | ⏳ Next |
-| 9 | Accessibility, performance, launch readiness | Planned |
+| 8 | Legal & compliance (privacy, ToS, data handling, deletion flow) | ✅ Shipped |
+| 9 | Accessibility, performance, launch readiness | ⏳ Next |
 
 See [CHANGELOG.md](CHANGELOG.md) for per-milestone detail.
 
@@ -103,4 +103,6 @@ With all services running, a research question submitted in the dashboard is pub
 - [Architecture Decision Records](docs/adr)
 - [Security posture & audit](SECURITY.md)
 - [Disaster recovery & rollback](docs/disaster-recovery.md)
+- [Data handling & compliance](DATA_HANDLING.md) · [Trademark check](docs/legal/trademark-check.md)
+- [Testing strategy](tests/README.md)
 - [Design system](apps/web/README.md) — tokens, type, color; live at `/styleguide`
