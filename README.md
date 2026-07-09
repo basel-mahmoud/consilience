@@ -64,8 +64,8 @@ Services communicate through documented contracts in [`packages/contracts`](pack
 | 5a | Real-time agent-trace streaming (mesh → SignalR → live dashboard) | ✅ Shipped |
 | 5b | Report export with citations | ✅ Shipped |
 | 6 | Security hardening audit | ✅ Shipped |
-| 7 | Full testing pass (unit/integration/e2e/load) | ⏳ Next |
-| 8 | Legal & compliance (privacy, ToS, data handling) | Planned |
+| 7 | Full testing pass (unit/integration/e2e/load) | ✅ Shipped |
+| 8 | Legal & compliance (privacy, ToS, data handling) | ⏳ Next |
 | 9 | Accessibility, performance, launch readiness | Planned |
 
 See [CHANGELOG.md](CHANGELOG.md) for per-milestone detail.

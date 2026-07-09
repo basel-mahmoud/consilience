@@ -2,6 +2,25 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [0.11.0] — 2026-07-09 · Milestone 7: Testing pass
+
+**Shipped**
+
+- **Cross-service contract tests** (CI): each service now asserts it reads/writes exactly the shapes in `packages/contracts`, so a message-shape change on one side without the other fails CI — gateway (`run.requested` produced, `trace.event` consumed), engine (deserializes the gateway's canonical payload), mesh (consumed and emitted messages validated against the JSON Schemas)
+- **End-to-end harness** [`tests/e2e/pipeline_smoke.py`](tests/e2e/pipeline_smoke.py): drives the critical flow (seed → `run.requested` → poll to terminal) and asserts agents, claims, and evaluations were produced
+- **Load harness** [`tests/load/dispatch_load.py`](tests/load/dispatch_load.py): publishes N runs and measures engine dispatch/decision throughput; with a low rate cap it exercises the consume + policy + DB path at speed without spending LLM quota
+- [`tests/README.md`](tests/README.md): the four-level test strategy (unit, contract, e2e, load) plus the documented chaos / graceful-degradation behaviors and how to reproduce them
+- Test counts this pass: gateway 26, mesh 42, engine +3 contract tests; all green in CI
+
+**Notes**
+
+- Unit coverage of core logic across all three services was built alongside each feature (M1–M6); this pass added the boundary and system-level tests and the strategy doc
+- Live e2e and full-orchestration load runs need the (currently exhausted) Gemini daily quota, so those harnesses are scripted for local runs rather than gated in CI; the e2e path was verified by hand during development (gateway → engine → mesh → completed)
+
+**Next**
+
+- Milestone 8: legal & compliance — privacy policy, terms of service, `DATA_HANDLING.md`, trademark check, and the account/data deletion flow
+
 ## [0.10.0] — 2026-07-09 · Milestone 6: Security hardening
 
 **Shipped**
