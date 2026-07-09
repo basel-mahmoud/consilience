@@ -5,7 +5,7 @@ import { Logo } from "@/components/logo";
 import { NewRunForm } from "@/components/new-run-form";
 import { StatusPill } from "@/components/run-status";
 import {
-  isGatewayConfigured,
+  isBackendAvailable,
   listRuns,
   type RunListItem,
 } from "@/lib/gateway";
@@ -13,6 +13,10 @@ import {
 export const metadata: Metadata = {
   title: "Overview",
 };
+
+// Demo-mode research runs in the background (after()) of the createRun action,
+// which executes in this route's function — give it room to finish.
+export const maxDuration = 60;
 
 function greeting() {
   const h = new Date().getHours();
@@ -23,7 +27,7 @@ function greeting() {
 }
 
 async function loadRuns(): Promise<{ runs: RunListItem[]; reachable: boolean }> {
-  if (!isGatewayConfigured()) return { runs: [], reachable: false };
+  if (!isBackendAvailable()) return { runs: [], reachable: false };
   try {
     return { runs: await listRuns(), reachable: true };
   } catch {
@@ -33,7 +37,7 @@ async function loadRuns(): Promise<{ runs: RunListItem[]; reachable: boolean }> 
 
 export default async function Overview() {
   const [user, { runs, reachable }] = await Promise.all([currentUser(), loadRuns()]);
-  const configured = isGatewayConfigured();
+  const configured = isBackendAvailable();
 
   return (
     <main className="mx-auto w-full max-w-4xl space-y-10">

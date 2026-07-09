@@ -1,11 +1,11 @@
 "use client";
 
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { deleteAccountData } from "@/app/dashboard/actions";
 
 export function DeleteAccount() {
-  const { getToken } = useAuth();
   const { user } = useUser();
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -16,16 +16,9 @@ export function DeleteAccount() {
     setBusy(true);
     setError(null);
     try {
-      const base = process.env.NEXT_PUBLIC_GATEWAY_URL;
-      if (base) {
-        // 1. Erase all research data owned by the account
-        const token = await getToken();
-        const res = await fetch(`${base}/api/account`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("data deletion failed");
-      }
+      // 1. Erase all research data owned by the account (gateway or demo DB)
+      const { ok } = await deleteAccountData();
+      if (!ok) throw new Error("data deletion failed");
       // 2. Erase the authentication identity itself
       await user?.delete();
       router.push("/");

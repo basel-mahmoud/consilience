@@ -1,4 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { demoModeEnabled } from "@/lib/db";
 
 export type RunStatus =
   | "queued"
@@ -48,6 +49,13 @@ export interface RunEvaluation {
   rationale: string;
 }
 
+export interface RunTraceEvent {
+  seq: number;
+  type: string;
+  message: string;
+  at: string;
+}
+
 export interface RunDetail {
   id: string;
   question: string;
@@ -61,6 +69,8 @@ export interface RunDetail {
   sources: RunSource[];
   contradictions: RunContradiction[];
   evaluations: RunEvaluation[];
+  // Populated in demo mode (serverless); gateway mode streams these over SignalR
+  trace?: RunTraceEvent[];
 }
 
 export class GatewayUnavailableError extends Error {}
@@ -72,6 +82,17 @@ function gatewayUrl(): string | null {
 /** True when a gateway is configured; the dashboard degrades gracefully when not. */
 export function isGatewayConfigured(): boolean {
   return gatewayUrl() !== null;
+}
+
+/** True when runs can be created — via the gateway, or serverless demo mode. */
+export function isBackendAvailable(): boolean {
+  return isGatewayConfigured() || demoModeEnabled();
+}
+
+async function clerkIdentity(): Promise<{ id: string; email: string | null }> {
+  const user = await currentUser();
+  if (!user) throw new Error("not authenticated");
+  return { id: user.id, email: user.primaryEmailAddress?.emailAddress ?? null };
 }
 
 async function authedFetch(path: string, init?: RequestInit): Promise<Response> {
@@ -96,12 +117,22 @@ async function authedFetch(path: string, init?: RequestInit): Promise<Response> 
 }
 
 export async function listRuns(): Promise<RunListItem[]> {
+  if (!isGatewayConfigured() && demoModeEnabled()) {
+    const { id, email } = await clerkIdentity();
+    const demo = await import("@/lib/demo");
+    return demo.listRuns(id, email);
+  }
   const response = await authedFetch("/api/runs");
   if (!response.ok) throw new Error(`gateway returned ${response.status}`);
   return response.json();
 }
 
 export async function getRun(runId: string): Promise<RunDetail | null> {
+  if (!isGatewayConfigured() && demoModeEnabled()) {
+    const { id, email } = await clerkIdentity();
+    const demo = await import("@/lib/demo");
+    return demo.getRun(id, email, runId);
+  }
   const response = await authedFetch(`/api/runs/${runId}`);
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`gateway returned ${response.status}`);

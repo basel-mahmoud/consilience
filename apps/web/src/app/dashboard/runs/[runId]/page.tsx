@@ -12,11 +12,15 @@ import { RunAutoRefresh } from "@/components/run-auto-refresh";
 import { EvaluationPanel } from "@/components/evaluation-panel";
 import { ApprovalGate } from "@/components/approval-gate";
 import { LiveTrace } from "@/components/live-trace";
+import { TraceTimeline } from "@/components/trace-timeline";
 import { ExportReport } from "@/components/export-report";
 
 export const metadata: Metadata = {
   title: "Run",
 };
+
+// The approve action re-runs research in the background of this route's function
+export const maxDuration = 60;
 
 export default async function RunPage({
   params,
@@ -114,8 +118,14 @@ export default async function RunPage({
         </div>
       )}
 
-      {(inProgress || run.status === "completed" || run.status === "failed") && (
-        <LiveTrace runId={run.id} live={inProgress} />
+      {/* Demo mode delivers the trace with the run detail (polled); the gateway
+          streams it live over SignalR instead */}
+      {run.trace && run.trace.length > 0 ? (
+        <TraceTimeline events={run.trace} live={inProgress} />
+      ) : (
+        (inProgress || run.status === "completed" || run.status === "failed") && (
+          <LiveTrace runId={run.id} live={inProgress} />
+        )
       )}
 
       {run.status === "completed" && (
