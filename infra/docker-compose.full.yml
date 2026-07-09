@@ -1,0 +1,52 @@
+# Full stack in containers: broker + all three backend services.
+# Proves the images run and wire together before deploying to a host.
+#
+#   docker compose -f infra/docker-compose.full.yml --env-file .env up --build
+#
+# Reads DATABASE_URL, GEMINI_API_KEY, and Clerk config from the root .env;
+# RABBITMQ_URL is overridden to the in-network broker below.
+
+services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    ports: ["15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  gateway:
+    build: ../services/gateway
+    image: consilience-gateway:local
+    ports: ["5180:8080"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      Clerk__Authority: ${CLERK_AUTHORITY:-https://close-manatee-98.clerk.accounts.dev}
+      Cors__AllowedOrigins__0: http://localhost:3001
+      Cors__AllowedOrigins__1: https://consilience-one.vercel.app
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+
+  mesh:
+    build: ../services/mesh
+    image: consilience-mesh:local
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      MESH_SEARCH_MODEL: ${MESH_SEARCH_MODEL:-gemini-2.5-flash}
+      MESH_SYNTHESIS_MODEL: ${MESH_SYNTHESIS_MODEL:-gemini-2.5-flash}
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+
+  engine:
+    build: ../services/engine
+    image: consilience-engine:local
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      ENGINE_MAX_RUNS_PER_HOUR: ${ENGINE_MAX_RUNS_PER_HOUR:-10}
+    depends_on:
+      rabbitmq: { condition: service_healthy }
