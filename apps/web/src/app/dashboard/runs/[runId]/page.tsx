@@ -10,6 +10,7 @@ import {
 } from "@/components/run-status";
 import { RunAutoRefresh } from "@/components/run-auto-refresh";
 import { EvaluationPanel } from "@/components/evaluation-panel";
+import { ApprovalGate } from "@/components/approval-gate";
 
 export const metadata: Metadata = {
   title: "Run",
@@ -31,6 +32,7 @@ export default async function RunPage({
   if (run === null) notFound();
 
   const inProgress = run.status === "queued" || run.status === "running";
+  const awaitingApproval = run.status === "awaiting_approval";
 
   // Per-lens tallies for the mesh strip (agent attribution arrives with M3)
   const agents = Array.from(
@@ -49,6 +51,7 @@ export default async function RunPage({
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-8">
+      {/* Poll while queued/running so an approved run flows straight to results */}
       {inProgress && <RunAutoRefresh />}
 
       <div className="space-y-4">
@@ -67,6 +70,23 @@ export default async function RunPage({
           </div>
         </div>
       </div>
+
+      {awaitingApproval && (
+        <ApprovalGate runId={run.id} reason={run.approvalReason} />
+      )}
+
+      {run.status === "rejected" && (
+        <p className="rounded-md border border-line px-4 py-3 text-sm text-ink-muted">
+          You rejected this run, so the agents never ran. Start a new run from the
+          dashboard whenever you&apos;re ready.
+        </p>
+      )}
+
+      {run.status === "rate_limited" && (
+        <p className="rounded-md border border-confidence-mid/40 bg-confidence-mid/5 px-4 py-3 text-sm text-confidence-mid">
+          {run.error ?? "This run was rate-limited."} Try again a little later.
+        </p>
+      )}
 
       {run.status === "failed" && (
         <p className="rounded-md border border-confidence-low/40 bg-confidence-low/5 px-4 py-3 text-sm text-confidence-low">

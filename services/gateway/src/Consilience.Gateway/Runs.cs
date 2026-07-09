@@ -19,7 +19,7 @@ public sealed record RunContradiction(int ClaimA, int ClaimB, string Explanation
 public sealed record RunEvaluation(string Metric, double Score, string Rationale);
 
 public sealed record RunDetail(
-    Guid Id, string Question, string Status, string? Summary, string? Error,
+    Guid Id, string Question, string Status, string? Summary, string? Error, string? ApprovalReason,
     DateTime CreatedAt, DateTime? CompletedAt, RunClaim[] Claims, RunSource[] Sources,
     RunContradiction[] Contradictions, RunEvaluation[] Evaluations);
 
@@ -33,11 +33,21 @@ public interface IRunStore
     Task<IReadOnlyList<RunListItem>> ListAsync(Guid userId, CancellationToken ct);
     Task<RunDetail?> GetAsync(Guid userId, Guid runId, CancellationToken ct);
     Task MarkFailedAsync(Guid userId, Guid runId, string error, CancellationToken ct);
+
+    /// <summary>
+    /// Re-queues an awaiting_approval run for dispatch. Returns the question if the transition
+    /// happened (run existed, owned, and awaiting_approval), else null.
+    /// </summary>
+    Task<string?> RequeueApprovedAsync(Guid userId, Guid runId, CancellationToken ct);
+
+    /// <summary>Transitions an awaiting_approval run to rejected. Returns true if it happened.</summary>
+    Task<bool> RejectAsync(Guid userId, Guid runId, CancellationToken ct);
 }
 
 public interface IRunPublisher
 {
     Task PublishRunRequestedAsync(RunRequestedMessage message, CancellationToken ct);
+    Task PublishRunApprovedAsync(RunRequestedMessage message, CancellationToken ct);
 }
 
 public sealed class PostgresRunStore(NpgsqlDataSource dataSource) : IRunStore
@@ -91,7 +101,7 @@ public sealed class PostgresRunStore(NpgsqlDataSource dataSource) : IRunStore
 
         await using var runCommand = new NpgsqlCommand(
             """
-            SELECT question, status, summary, error, created_at, completed_at
+            SELECT question, status, summary, error, created_at, completed_at, approval_reason
             FROM runs WHERE id = $1 AND user_id = $2
             """, connection);
         runCommand.Parameters.AddWithValue(runId);
@@ -103,6 +113,7 @@ public sealed class PostgresRunStore(NpgsqlDataSource dataSource) : IRunStore
         var error = runReader.IsDBNull(3) ? null : runReader.GetString(3);
         var createdAt = runReader.GetDateTime(4);
         DateTime? completedAt = runReader.IsDBNull(5) ? null : runReader.GetDateTime(5);
+        var approvalReason = runReader.IsDBNull(6) ? null : runReader.GetString(6);
         await runReader.CloseAsync();
 
         var claims = new List<RunClaim>();
@@ -184,7 +195,7 @@ public sealed class PostgresRunStore(NpgsqlDataSource dataSource) : IRunStore
         }
 
         return new RunDetail(
-            runId, question, status, summary, error, createdAt, completedAt,
+            runId, question, status, summary, error, approvalReason, createdAt, completedAt,
             [.. claims], [.. sources], [.. contradictions], [.. evaluations]);
     }
 
@@ -199,6 +210,31 @@ public sealed class PostgresRunStore(NpgsqlDataSource dataSource) : IRunStore
         command.Parameters.AddWithValue(userId);
         command.Parameters.AddWithValue(error);
         await command.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<string?> RequeueApprovedAsync(Guid userId, Guid runId, CancellationToken ct)
+    {
+        await using var command = dataSource.CreateCommand(
+            """
+            UPDATE runs SET status = 'queued', approval_reason = NULL
+            WHERE id = $1 AND user_id = $2 AND status = 'awaiting_approval'
+            RETURNING question
+            """);
+        command.Parameters.AddWithValue(runId);
+        command.Parameters.AddWithValue(userId);
+        return (string?)await command.ExecuteScalarAsync(ct);
+    }
+
+    public async Task<bool> RejectAsync(Guid userId, Guid runId, CancellationToken ct)
+    {
+        await using var command = dataSource.CreateCommand(
+            """
+            UPDATE runs SET status = 'rejected', completed_at = now()
+            WHERE id = $1 AND user_id = $2 AND status = 'awaiting_approval'
+            """);
+        command.Parameters.AddWithValue(runId);
+        command.Parameters.AddWithValue(userId);
+        return await command.ExecuteNonQueryAsync(ct) == 1;
     }
 }
 
@@ -218,7 +254,13 @@ public sealed class RabbitMqRunPublisher : IRunPublisher, IAsyncDisposable
         _factory = new ConnectionFactory { Uri = new Uri(url) };
     }
 
-    public async Task PublishRunRequestedAsync(RunRequestedMessage message, CancellationToken ct)
+    public Task PublishRunRequestedAsync(RunRequestedMessage message, CancellationToken ct) =>
+        PublishAsync("run.requested", message, ct);
+
+    public Task PublishRunApprovedAsync(RunRequestedMessage message, CancellationToken ct) =>
+        PublishAsync("run.approved", message, ct);
+
+    private async Task PublishAsync(string routingKey, RunRequestedMessage message, CancellationToken ct)
     {
         var channel = await GetChannelAsync(ct);
         var body = JsonSerializer.SerializeToUtf8Bytes(message, JsonOptions);
@@ -229,7 +271,7 @@ public sealed class RabbitMqRunPublisher : IRunPublisher, IAsyncDisposable
         };
         // Publisher confirms are enabled: this awaits broker acknowledgement
         await channel.BasicPublishAsync(
-            exchange: "consilience", routingKey: "run.requested", mandatory: false,
+            exchange: "consilience", routingKey: routingKey, mandatory: false,
             basicProperties: properties, body: body, cancellationToken: ct);
     }
 

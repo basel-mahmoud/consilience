@@ -5,6 +5,9 @@ const statusStyles: Record<RunStatus, { dot: string; label: string }> = {
   running: { dot: "bg-accent animate-pulse", label: "Researching" },
   completed: { dot: "bg-confidence-high", label: "Complete" },
   failed: { dot: "bg-confidence-low", label: "Failed" },
+  rate_limited: { dot: "bg-confidence-mid", label: "Rate limited" },
+  awaiting_approval: { dot: "bg-confidence-mid animate-pulse", label: "Awaiting approval" },
+  rejected: { dot: "bg-ink-muted", label: "Rejected" },
 };
 
 export function StatusPill({ status }: { status: RunStatus }) {

@@ -2,6 +2,26 @@
 
 All notable changes to Consilience, one entry per milestone.
 
+## [0.7.0] — 2026-07-09 · Milestone 4b: Human-in-the-loop approval gate
+
+**Shipped**
+
+- **Approval-gate rules engine** (`ApprovalRules`): a transparent keyword policy that flags runs whose question touches a sensitive domain (medical, legal, financial, safety) for human review — because the mesh presents confident, cited-looking claims, those topics get a checkpoint before compute is spent
+- Engine now applies **rate limit → approval gate → dispatch** in order; a flagged run is marked `awaiting_approval` with the reason and held (not dispatched)
+- **Approve/reject flow**: gateway endpoints `POST /api/runs/{id}/approve` and `/reject` (ownership-scoped); approve re-queues the run and publishes `run.approved`, which the engine consumes on `engine.approvals` and dispatches without re-running the rules; reject marks the run `rejected`
+- New run statuses (`awaiting_approval`, `rejected`) and an `approval_reason` column (Neon MCP migration); `run.approved` documented in `packages/contracts`
+- Dashboard: the run view shows an **Approve & run / Reject** panel with the reason when a run is awaiting approval, and dedicated states for rejected and rate-limited runs
+- Tests: engine grows to 18 (approval rules across sensitive/ordinary questions, processor awaiting-approval path, rate-limit-takes-precedence); gateway grows to 21 (approve/reject success, ownership 404, wrong-state 404); all four CI jobs green
+
+**Verified**
+
+- Full approval loop live: a medical-dosage question was flagged `awaiting_approval` with the domain reason and held with zero agents run; after a simulated approval (re-queue + `run.approved`), the engine dispatched it to the mesh — confirming the gate, the hold, and the approve→dispatch handoff end to end
+- The dispatched research itself hit Gemini's (now fully exhausted) free-tier daily quota; the M4a dispatch test had already confirmed a dispatched run completes end to end
+
+**Next**
+
+- Milestone 5: real-time live trace UI (WebSocket/SignalR streaming of agent activity) and report export with citations
+
 ## [0.6.0] — 2026-07-09 · Milestone 4a: Workflow engine (rate limiting + dispatch)
 
 **Shipped**

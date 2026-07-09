@@ -4,6 +4,34 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 
+async function postToGateway(path: string): Promise<{ ok: boolean }> {
+  const base = process.env.NEXT_PUBLIC_GATEWAY_URL;
+  if (!base) return { ok: false };
+  try {
+    const { getToken } = await auth();
+    const token = await getToken();
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    return { ok: res.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function approveRun(runId: string): Promise<void> {
+  await postToGateway(`/api/runs/${runId}/approve`);
+  revalidatePath(`/dashboard/runs/${runId}`);
+}
+
+export async function rejectRun(runId: string): Promise<void> {
+  await postToGateway(`/api/runs/${runId}/reject`);
+  revalidatePath(`/dashboard/runs/${runId}`);
+}
+
 export type CreateRunState = { error: string | null };
 
 export async function createRun(

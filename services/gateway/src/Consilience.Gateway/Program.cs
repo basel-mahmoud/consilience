@@ -161,6 +161,61 @@ app.MapGet(
         })
     .RequireAuthorization();
 
+app.MapPost(
+        "/api/runs/{runId:guid}/approve",
+        async (
+            Guid runId,
+            ClaimsPrincipal principal,
+            IUserStore users,
+            IRunStore runs,
+            IRunPublisher publisher,
+            ILogger<Program> logger,
+            CancellationToken ct) =>
+        {
+            var clerkUserId = principal.FindFirstValue("sub");
+            if (clerkUserId is null) return Results.Unauthorized();
+            var userId = await users.UpsertAsync(clerkUserId, principal.FindFirstValue("email"), ct);
+
+            // Re-queue only if the caller owns the run and it is awaiting approval
+            var question = await runs.RequeueApprovedAsync(userId, runId, ct);
+            if (question is null) return Results.NotFound();
+
+            try
+            {
+                await publisher.PublishRunApprovedAsync(
+                    new RunRequestedMessage(runId, userId, question, DateTimeOffset.UtcNow), ct);
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(exception, "failed to dispatch approved run {RunId}", runId);
+                await runs.MarkFailedAsync(userId, runId, "dispatch after approval failed", ct);
+                return Results.Problem(
+                    statusCode: StatusCodes.Status502BadGateway,
+                    title: "Approved run could not be dispatched");
+            }
+
+            return Results.Ok(new { runId, status = "queued" });
+        })
+    .RequireAuthorization();
+
+app.MapPost(
+        "/api/runs/{runId:guid}/reject",
+        async (
+            Guid runId,
+            ClaimsPrincipal principal,
+            IUserStore users,
+            IRunStore runs,
+            CancellationToken ct) =>
+        {
+            var clerkUserId = principal.FindFirstValue("sub");
+            if (clerkUserId is null) return Results.Unauthorized();
+            var userId = await users.UpsertAsync(clerkUserId, principal.FindFirstValue("email"), ct);
+
+            var rejected = await runs.RejectAsync(userId, runId, ct);
+            return rejected ? Results.Ok(new { runId, status = "rejected" }) : Results.NotFound();
+        })
+    .RequireAuthorization();
+
 app.Run();
 
 public sealed record MeResponse(string UserId, string? Email);

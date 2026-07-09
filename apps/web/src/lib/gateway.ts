@@ -1,6 +1,13 @@
 import { auth } from "@clerk/nextjs/server";
 
-export type RunStatus = "queued" | "running" | "completed" | "failed";
+export type RunStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed"
+  | "rate_limited"
+  | "awaiting_approval"
+  | "rejected";
 export type Confidence = "high" | "mid" | "low";
 
 export interface RunListItem {
@@ -47,6 +54,7 @@ export interface RunDetail {
   status: RunStatus;
   summary: string | null;
   error: string | null;
+  approvalReason: string | null;
   createdAt: string;
   completedAt: string | null;
   claims: RunClaim[];

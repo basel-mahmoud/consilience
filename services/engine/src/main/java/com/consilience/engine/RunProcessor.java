@@ -1,19 +1,21 @@
 package com.consilience.engine;
 
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The engine's decision for one run request: enforce the per-user throughput cap, then dispatch to
- * the mesh. Depends only on the {@link Runs} and {@link Dispatcher} interfaces so the policy is
- * unit-testable without a broker or database.
+ * The engine's decision for one run request: enforce the per-user throughput cap, apply the
+ * approval-gate rules, then dispatch to the mesh. Depends only on the {@link Runs} and {@link
+ * Dispatcher} interfaces so the policy is unit-testable without a broker or database.
  */
 public final class RunProcessor {
   private static final Logger log = LoggerFactory.getLogger(RunProcessor.class);
 
   public enum Outcome {
     DISPATCHED,
-    RATE_LIMITED
+    RATE_LIMITED,
+    AWAITING_APPROVAL
   }
 
   private final Runs runs;
@@ -39,6 +41,13 @@ public final class RunProcessor {
       log.info("run {} rate-limited: {}", message.runId(), reason);
       runs.markRateLimited(message.runId(), message.userId(), reason);
       return Outcome.RATE_LIMITED;
+    }
+
+    Optional<String> approval = ApprovalRules.requiresApproval(message.question());
+    if (approval.isPresent()) {
+      log.info("run {} awaiting approval: {}", message.runId(), approval.get());
+      runs.markAwaitingApproval(message.runId(), message.userId(), approval.get());
+      return Outcome.AWAITING_APPROVAL;
     }
 
     dispatcher.dispatch(message);

@@ -78,6 +78,11 @@ public sealed class FakeRunStore : IRunStore
     public Dictionary<(Guid UserId, Guid RunId), RunDetail> Details { get; } = [];
     public Guid NextRunId { get; set; } = Guid.NewGuid();
 
+    // Runs that RequeueApproved/Reject will treat as awaiting_approval, keyed by (user, run)
+    public Dictionary<(Guid UserId, Guid RunId), string> AwaitingApproval { get; } = [];
+    public List<Guid> Requeued { get; } = [];
+    public List<Guid> Rejected { get; } = [];
+
     public Task<Guid> CreateAsync(Guid userId, string question, CancellationToken ct)
     {
         Created.Add((userId, question));
@@ -86,6 +91,27 @@ public sealed class FakeRunStore : IRunStore
 
     public Task<int> CountActiveAsync(Guid userId, CancellationToken ct) =>
         Task.FromResult(ActiveCount);
+
+    public Task<string?> RequeueApprovedAsync(Guid userId, Guid runId, CancellationToken ct)
+    {
+        if (AwaitingApproval.TryGetValue((userId, runId), out var question))
+        {
+            AwaitingApproval.Remove((userId, runId));
+            Requeued.Add(runId);
+            return Task.FromResult<string?>(question);
+        }
+        return Task.FromResult<string?>(null);
+    }
+
+    public Task<bool> RejectAsync(Guid userId, Guid runId, CancellationToken ct)
+    {
+        if (AwaitingApproval.Remove((userId, runId)))
+        {
+            Rejected.Add(runId);
+            return Task.FromResult(true);
+        }
+        return Task.FromResult(false);
+    }
 
     public Task<IReadOnlyList<RunListItem>> ListAsync(Guid userId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<RunListItem>>(
@@ -108,12 +134,20 @@ public sealed class FakeRunStore : IRunStore
 public sealed class FakeRunPublisher : IRunPublisher
 {
     public List<RunRequestedMessage> Published { get; } = [];
+    public List<RunRequestedMessage> Approved { get; } = [];
     public Exception? ThrowOnPublish { get; set; }
 
     public Task PublishRunRequestedAsync(RunRequestedMessage message, CancellationToken ct)
     {
         if (ThrowOnPublish is not null) throw ThrowOnPublish;
         Published.Add(message);
+        return Task.CompletedTask;
+    }
+
+    public Task PublishRunApprovedAsync(RunRequestedMessage message, CancellationToken ct)
+    {
+        if (ThrowOnPublish is not null) throw ThrowOnPublish;
+        Approved.Add(message);
         return Task.CompletedTask;
     }
 }

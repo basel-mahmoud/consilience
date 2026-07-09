@@ -22,14 +22,18 @@ public final class Main {
   static final String DLX = "consilience.dlx";
   static final String QUEUE = "engine.run-requests";
   static final String ROUTING_KEY = "run.requested";
+  static final String APPROVAL_QUEUE = "engine.approvals";
+  static final String APPROVAL_ROUTING_KEY = "run.approved";
 
   private final RunProcessor processor;
   private final Runs runs;
+  private final Dispatcher dispatcher;
   private final ObjectMapper mapper = new ObjectMapper();
 
-  Main(RunProcessor processor, Runs runs) {
+  Main(RunProcessor processor, Runs runs, Dispatcher dispatcher) {
     this.processor = processor;
     this.runs = runs;
+    this.dispatcher = dispatcher;
   }
 
   public static void main(String[] args) throws Exception {
@@ -48,14 +52,21 @@ public final class Main {
     channel.queueBind(QUEUE, EXCHANGE, ROUTING_KEY);
     channel.queueDeclare(QUEUE + ".dlq", true, false, false, null);
     channel.queueBind(QUEUE + ".dlq", DLX, "#");
+    channel.queueDeclare(APPROVAL_QUEUE, true, false, false, Map.of("x-dead-letter-exchange", DLX));
+    channel.queueBind(APPROVAL_QUEUE, EXCHANGE, APPROVAL_ROUTING_KEY);
     channel.basicQos(4);
 
-    RunProcessor processor =
-        new RunProcessor(runs, new RabbitDispatcher(channel), config.maxRunsPerHour());
-    Main engine = new Main(processor, runs);
+    Dispatcher dispatcher = new RabbitDispatcher(channel);
+    RunProcessor processor = new RunProcessor(runs, dispatcher, config.maxRunsPerHour());
+    Main engine = new Main(processor, runs, dispatcher);
 
-    log.info("engine consuming {} (max {} runs/hour/user)", QUEUE, config.maxRunsPerHour());
+    log.info(
+        "engine consuming {} and {} (max {} runs/hour/user)",
+        QUEUE,
+        APPROVAL_QUEUE,
+        config.maxRunsPerHour());
     channel.basicConsume(QUEUE, false, engine.callback(channel), consumerTag -> {});
+    channel.basicConsume(APPROVAL_QUEUE, false, engine.approvalCallback(channel), tag -> {});
   }
 
   DeliverCallback callback(Channel channel) {
@@ -74,6 +85,43 @@ public final class Main {
   }
 
   void handle(Delivery delivery) throws Exception {
+    RunRequested message = parse(delivery);
+    try {
+      processor.process(message);
+    } catch (Exception e) {
+      runs.markFailed(message.runId(), message.userId(), "engine dispatch failed");
+      throw e;
+    }
+  }
+
+  /** A human approved a gated run: dispatch it, skipping the rules that flagged it. */
+  DeliverCallback approvalCallback(Channel channel) {
+    return (consumerTag, delivery) -> {
+      try {
+        handleApproval(delivery);
+        channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+      } catch (InvalidMessageException e) {
+        log.error("invalid approval message — dead-lettering", e);
+        channel.basicReject(delivery.getEnvelope().getDeliveryTag(), false);
+      } catch (Exception e) {
+        log.error("approval dispatch failed — dead-lettering", e);
+        channel.basicReject(delivery.getEnvelope().getDeliveryTag(), false);
+      }
+    };
+  }
+
+  void handleApproval(Delivery delivery) throws Exception {
+    RunRequested message = parse(delivery);
+    try {
+      dispatcher.dispatch(message);
+      log.info("approved run {} dispatched to mesh", message.runId());
+    } catch (Exception e) {
+      runs.markFailed(message.runId(), message.userId(), "engine dispatch failed after approval");
+      throw e;
+    }
+  }
+
+  private RunRequested parse(Delivery delivery) throws InvalidMessageException {
     RunRequested message;
     try {
       message = mapper.readValue(delivery.getBody(), RunRequested.class);
@@ -83,12 +131,7 @@ public final class Main {
     if (message.runId() == null || message.userId() == null) {
       throw new InvalidMessageException(new IllegalArgumentException("missing runId/userId"));
     }
-    try {
-      processor.process(message);
-    } catch (Exception e) {
-      runs.markFailed(message.runId(), message.userId(), "engine dispatch failed");
-      throw e;
-    }
+    return message;
   }
 
   static final class InvalidMessageException extends Exception {

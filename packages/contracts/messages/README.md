@@ -5,10 +5,13 @@ Exchange: **`consilience`** (topic, durable). Dead letters go to **`consilience.
 | Routing key | Schema | Producer → Consumer | Queue |
 |---|---|---|---|
 | `run.requested` | [research-run-requested.v1](research-run-requested.v1.json) | gateway → engine | `engine.run-requests` |
+| `run.approved` | [research-run-requested.v1](research-run-requested.v1.json) | gateway → engine | `engine.approvals` |
 | `agent.dispatch` | [research-run-requested.v1](research-run-requested.v1.json) | engine → mesh | `mesh.run-requests` |
 
 The engine relays the same payload on `agent.dispatch` after its rate-limit and approval-gate
-checks pass — the mesh only ever researches runs the engine has cleared.
+checks pass — the mesh only ever researches runs the engine has cleared. A run the engine flags for
+approval waits until the user approves it in the dashboard; the gateway then re-queues it and
+publishes `run.approved`, which the engine dispatches without re-checking the rules.
 
 Rules:
 

@@ -14,6 +14,7 @@ class RunProcessorTest {
   static final class FakeRuns implements Runs {
     int recentCount;
     final List<UUID> rateLimited = new ArrayList<>();
+    final List<UUID> awaitingApproval = new ArrayList<>();
     final List<UUID> failed = new ArrayList<>();
 
     @Override
@@ -24,6 +25,11 @@ class RunProcessorTest {
     @Override
     public void markRateLimited(UUID runId, UUID userId, String reason) {
       rateLimited.add(runId);
+    }
+
+    @Override
+    public void markAwaitingApproval(UUID runId, UUID userId, String reason) {
+      awaitingApproval.add(runId);
     }
 
     @Override
@@ -46,8 +52,11 @@ class RunProcessorTest {
   }
 
   private static RunRequested message() {
-    return new RunRequested(
-        UUID.randomUUID(), UUID.randomUUID(), "a question", "2026-07-09T00:00:00Z");
+    return message("a perfectly ordinary research question");
+  }
+
+  private static RunRequested message(String question) {
+    return new RunRequested(UUID.randomUUID(), UUID.randomUUID(), question, "2026-07-09T00:00:00Z");
   }
 
   @Test
@@ -96,5 +105,31 @@ class RunProcessorTest {
 
     assertThrows(
         RuntimeException.class, () -> new RunProcessor(runs, dispatcher, 10).process(message()));
+  }
+
+  @Test
+  void sensitiveQuestionAwaitsApprovalInsteadOfDispatch() throws Exception {
+    FakeRuns runs = new FakeRuns();
+    FakeDispatcher dispatcher = new FakeDispatcher();
+    RunRequested msg = message("What is the correct medication dosage for my child?");
+
+    RunProcessor.Outcome outcome = new RunProcessor(runs, dispatcher, 10).process(msg);
+
+    assertEquals(RunProcessor.Outcome.AWAITING_APPROVAL, outcome);
+    assertEquals(List.of(msg.runId()), runs.awaitingApproval);
+    assertTrue(dispatcher.dispatched.isEmpty());
+  }
+
+  @Test
+  void rateLimitTakesPrecedenceOverApproval() throws Exception {
+    FakeRuns runs = new FakeRuns();
+    runs.recentCount = 11;
+    FakeDispatcher dispatcher = new FakeDispatcher();
+    RunRequested msg = message("What is the correct medication dosage?");
+
+    RunProcessor.Outcome outcome = new RunProcessor(runs, dispatcher, 10).process(msg);
+
+    assertEquals(RunProcessor.Outcome.RATE_LIMITED, outcome);
+    assertTrue(runs.awaitingApproval.isEmpty());
   }
 }

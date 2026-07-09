@@ -60,6 +60,16 @@ public final class PostgresRuns implements Runs {
   }
 
   @Override
+  public void markAwaitingApproval(UUID runId, UUID userId, String reason) {
+    update(
+        "UPDATE runs SET status = 'awaiting_approval', approval_reason = left(?, 500)"
+            + " WHERE id = ? AND user_id = ? AND status = 'queued'",
+        reason,
+        runId,
+        userId);
+  }
+
+  @Override
   public void markFailed(UUID runId, UUID userId, String error) {
     update(
         "UPDATE runs SET status = 'failed', error = left(?, 500), completed_at = now()"
