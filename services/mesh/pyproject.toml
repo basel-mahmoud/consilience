@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "aio-pika>=9.5",
     "asyncpg>=0.30",
-    "google-genai>=1.16",
+    "google-genai>=2.11.0",
     "pydantic>=2.7",
 ]
 
@@ -14,7 +14,7 @@ dependencies = [
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
-    "ruff>=0.8",
+    "ruff>=0.15.21",
 ]
 
 [build-system]
