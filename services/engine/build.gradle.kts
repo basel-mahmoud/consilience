@@ -8,11 +8,11 @@ repositories {
 }
 
 dependencies {
-    implementation("com.rabbitmq:amqp-client:5.22.0")
-    implementation("org.postgresql:postgresql:42.7.4")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
-    implementation("org.slf4j:slf4j-api:2.0.16")
-    implementation("ch.qos.logback:logback-classic:1.5.12")
+    implementation("com.rabbitmq:amqp-client:5.34.0")
+    implementation("org.postgresql:postgresql:42.7.13")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.1")
+    implementation("org.slf4j:slf4j-api:2.0.18")
+    implementation("ch.qos.logback:logback-classic:1.5.38")
 
     testImplementation(platform("org.junit:junit-bom:5.11.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
